@@ -20,17 +20,17 @@ if __name__ == '__main__':
     # jpeg = JPEG()
     # jpeg.code_image(input=bmpfile, output=jpgfile)
     # jpeg.decode_image(input=jpgfile, output=decodejpg)
-    # JPEG2000
-    # code = JPEG2000()
-    # code.code_image(input=bmpfile, output=jp2file)
-    # code.decode_image(input=jp2file, output=decodejp2)
+    JPEG2000
+    code = JPEG2000()
+    code.code_image(input=bmpfile, output=jp2file)
+    code.decode_image(input=jp2file, output=decodejp2)
     # WebP
     # webp = WebP()
     # webp.code_image(input=pngfile, output=webpfile, verbose=verbose)
     # webp.decode_image(input=webpfile, output=decodewebp, verbose=verbose)
     # BPG
-    bpg = BPG()
-    bpg.code_image(input=pngfile, output=bpgfile, verbose=verbose)
-    bpg.decode_image(input=bpgfile, output=decodebpg, verbose=verbose)
+    # bpg = BPG()
+    # bpg.code_image(input=pngfile, output=bpgfile, verbose=verbose)
+    # bpg.decode_image(input=bpgfile, output=decodebpg, verbose=verbose)
 
     print("[ ] Doen !")
