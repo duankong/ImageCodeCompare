@@ -12,7 +12,7 @@ def showcmd(verbose, cmdline):
         print("[*] {}".format(cmdline))
 
 
-class JPEG():
+class JPEG:
     def __init__(self):
         self.cmdpath = "/home/duankong/picture/jpeg/jpeg-9d/"
         self.code = "cjpeg"
@@ -37,7 +37,7 @@ class JPEG():
         os.system(cmdline)
 
 
-class JPEG2000():
+class JPEG2000:
     def __init__(self):
         self.cmdpath = "/home/duankong/picture/jpeg2000/KDU805_Demo_Apps_for_Linux-x86-64_200602/"
         self.code = "kdu_compress"
@@ -61,7 +61,7 @@ class JPEG2000():
         os.system(cmdline)
 
 
-class WebP():
+class WebP:
     def __init__(self):
         self.cmdpath = "/home/duankong/picture/WebP/libwebp-1.1.0-linux-x86-64/bin/"
         self.code = "cwebp"
@@ -79,6 +79,27 @@ class WebP():
     def decode_image(self, input, output, verbose=0):
         input, output = addroot(input, output)
         switchs = self.silence
+        cmdline = self.cmdpath + self.decode + switchs + " " + input + " -o " + output
+        showcmd(verbose, cmdline)
+        os.system(cmdline)
+
+
+class BPG:
+    def __init__(self):
+        self.cmdpath = "/home/duankong/picture/bpg/libbpg-0.9.8/"
+        self.code = "bpgenc"
+        self.decode = "bpgdec"
+
+    def code_image(self, input, output, verbose=0):
+        input, output = addroot(input, output)
+        switches = ""
+        cmdline = self.cmdpath + self.code + switches + " " + input + " -o " + output
+        showcmd(verbose, cmdline)
+        os.system(cmdline)
+
+    def decode_image(self, input, output, verbose=0):
+        input, output = addroot(input, output)
+        switchs = ""
         cmdline = self.cmdpath + self.decode + switchs + " " + input + " -o " + output
         showcmd(verbose, cmdline)
         os.system(cmdline)
