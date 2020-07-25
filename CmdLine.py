@@ -61,16 +61,39 @@ class JPEG2000():
         os.system(cmdline)
 
 
+class WebP():
+    def __init__(self):
+        self.cmdpath = "/home/duankong/picture/WebP/libwebp-1.1.0-linux-x86-64/bin/"
+        self.code = "cwebp"
+        self.decode = "dwebp"
+        self.quality = ' -q 75'
+        self.silence = ' -quiet'
+
+    def code_image(self, input, output, verbose=0):
+        input, output = addroot(input, output)
+        switches = self.silence
+        cmdline = self.cmdpath + self.code + switches + " " + input + " -o " + output
+        showcmd(verbose, cmdline)
+        os.system(cmdline)
+
+    def decode_image(self, input, output, verbose=0):
+        input, output = addroot(input, output)
+        switchs = self.silence
+        cmdline = self.cmdpath + self.decode + switchs + " " + input + " -o " + output
+        showcmd(verbose, cmdline)
+        os.system(cmdline)
+
+
 if __name__ == '__main__':
     bmpfile = 'testout.bmp'
     jp2file = 'duankong_demo.jp2'
     jpgfile = "duankong_demo.jpg"
     decodefile = "decode.bmp"
-    decodejpg="decode_jpg.bmp"
+    decodejpg = "decode_jpg.bmp"
     # JPEG
     jpeg = JPEG()
     jpeg.code_image(input=bmpfile, output=jpgfile)
-    jpeg.decode_image(input=jpgfile,output=decodejpg)
+    jpeg.decode_image(input=jpgfile, output=decodejpg)
     # JPEG2000
     # code = JPEG2000()
     # code.code_image(input=bmpfile,output=jp2file)
