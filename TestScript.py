@@ -1,5 +1,5 @@
 import os
-from CmdLine import JPEG, JPEG2000, WebP, BPG
+from Cmdline import JPEG, JPEG2000, WebP, BPG
 
 if __name__ == '__main__':
     bmpfile = 'testout.bmp'
