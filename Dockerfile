@@ -10,9 +10,13 @@ FROM ubuntu:18.04 AS base
 
 WORKDIR     /image_test
 
+# Start
 RUN echo "\e[1;33;41m ==========  Start  ========= \e[0m"
 
+COPY sources.list /etc/apt/
+
 RUN     apt-get -yqq update && \
+        apt-get -y upgrade && \
         apt-get install -yq --no-install-recommends ca-certificates expat libgomp1 && \
         apt-get autoremove -y && \
         apt-get clean -y
@@ -24,7 +28,8 @@ RUN     buildDeps="wget \
                    cmake \
                    make \
                    python3 \
-                   python3-pip" && \
+                   python3-pip \
+                   git" && \
         apt-get -yqq update && \
         apt-get install -yq --no-install-recommends ${buildDeps}
 
@@ -66,8 +71,21 @@ RUN apt install -y libglu1 libxi6
 # BPG
 RUN echo "\e[1;33;41m ==========  BPG  ========= \e[0m"
 
+COPY libbpg-master.zip /tools
+
+RUN     buildDeps="libpng-dev \
+                   libjpeg-dev \
+                   libsdl1.2-dev \
+                   libslang2-dev \
+                   libsdl-image1.2-dev \
+                   yasm" && \
+        apt-get -yqq update && \
+        apt-get install -yq --no-install-recommends ${buildDeps}
+
 RUN mkdir -p /tools && \
     cd /tools && \
-    wget -O bpg.tar.gz https://bellard.org/bpg/libbpg-0.9.8.tar.gz  && \
-    tar xvzf bpg.tar.gz && \
-    rm -f bpg.tar.gz
+#   wget -O bpg.tar.gz https://bellard.org/bpg/libbpg-0.9.8.tar.gz  && \
+    unzip libbpg-master.zip && \
+    rm -f libbpg-master.zip && \
+    cd /tools/libbpg-master  && \
+    make
