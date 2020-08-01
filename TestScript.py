@@ -29,8 +29,8 @@ if __name__ == '__main__':
     webp.code_image(input=pngfile, output=webpfile, verbose=verbose)
     webp.decode_image(input=webpfile, output=decodewebp, verbose=verbose)
     # BPG
-    # bpg = BPG()
-    # bpg.code_image(input=pngfile, output=bpgfile, verbose=verbose)
-    # bpg.decode_image(input=bpgfile, output=decodebpg, verbose=verbose)
+    bpg = BPG()
+    bpg.code_image(input=pngfile, output=bpgfile, verbose=verbose)
+    bpg.decode_image(input=bpgfile, output=decodebpg, verbose=verbose)
 
     print("[ ] Done !")

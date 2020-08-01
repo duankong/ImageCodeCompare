@@ -79,7 +79,7 @@ class WebP:
 
 class BPG:
     def __init__(self):
-        self.cmdpath = "/home/duankong/picture/bpg/libbpg-0.9.8/"
+        self.cmdpath = "/tools/libbpg-master/"
         self.code = "bpgenc"
         self.decode = "bpgdec"
 
