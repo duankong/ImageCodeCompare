@@ -1,7 +1,7 @@
 import os
 
 
-def addroot(input, output, source_path="/cede/images/sourceimage/",
+def addroot(input, output, source_path="/code/images/sourceimage/",
             target_path="/code/images/"):
     if os.path.splitext(input)[-1] == ".bmp" or os.path.splitext(input)[-1] == ".png":
         input = source_path + input
