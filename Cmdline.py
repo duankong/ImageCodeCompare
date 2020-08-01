@@ -7,7 +7,7 @@ from utils import addroot, showcmd
 
 class JPEG:
     def __init__(self):
-        self.cmdpath = "/home/duankong/picture/jpeg/jpeg-9d/"
+        self.cmdpath = "/tools/jpeg-9d/"
         self.code = "cjpeg"
         self.decode = "djpeg"
         self.dct = " -dct int"
@@ -32,7 +32,7 @@ class JPEG:
 
 class JPEG2000:
     def __init__(self):
-        self.cmdpath = "/home/duankong/picture/jpeg2000/KDU805_Demo_Apps_for_Linux-x86-64_200602/"
+        self.cmdpath = "/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/"
         self.code = "kdu_compress"
         self.decode = "kdu_expand"
         self.Creversible = " Creversible=yes"
@@ -56,7 +56,7 @@ class JPEG2000:
 
 class WebP:
     def __init__(self):
-        self.cmdpath = "/home/duankong/picture/WebP/libwebp-1.1.0-linux-x86-64/bin/"
+        self.cmdpath = "/tools/libwebp-1.1.0-linux-x86-64/bin/"
         self.code = "cwebp"
         self.decode = "dwebp"
         self.quality = ' -q 75'
