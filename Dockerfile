@@ -22,11 +22,13 @@ RUN     buildDeps="wget \
                    gcc \
                    g++ \
                    cmake \
-                   make" && \
+                   make \
+                   python3 \
+                   python3-pip" && \
         apt-get -yqq update && \
         apt-get install -yq --no-install-recommends ${buildDeps}
 
-
+# JPEG2000
 RUN echo "\e[1;33;41m ==========  Kakadu  ========= \e[0m"
 
 RUN mkdir -p /tools && \
@@ -37,6 +39,7 @@ RUN mkdir -p /tools && \
 
 ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
 
+# JPEG
 RUN echo "\e[1;33;41m ==========  JPEG  ========= \e[0m"
 
 RUN mkdir -p /tools && \
@@ -60,6 +63,11 @@ RUN mkdir -p /tools && \
 # libGL libraries are needed for webp.
 RUN apt install -y libglu1 libxi6
 
+# BPG
+RUN echo "\e[1;33;41m ==========  BPG  ========= \e[0m"
 
-
-
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget -O bpg.tar.gz https://bellard.org/bpg/libbpg-0.9.8.tar.gz  && \
+    tar xvzf bpg.tar.gz && \
+    rm -f bpg.tar.gz
