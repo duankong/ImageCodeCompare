@@ -623,9 +623,9 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
     pool.join()
 
     # time.sleep(4)
-
-    LOGGER.debug(" ")
-    LOGGER.debug("Will get results from AsyncResult objects and list them now. This ensures callbacks complete.")
+    if len(results) > 0:
+        LOGGER.debug("\n\n")
+        LOGGER.debug("Will get results from AsyncResult objects and list them now. This ensures callbacks complete.")
     for result in results:
         try:
             task_result = result[0].get()
@@ -634,7 +634,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
             LOGGER.error(repr(e))
             TOTAL_ERRORS[result[1] + result[2]] += 1
 
-    LOGGER.info("\n\n")
+    print("\n\n")
     if not only_perform_missing_encodes:
         LOGGER.info("Total payload in kilo Bytes:")
         for codec in TUPLE_CODECS:
@@ -662,6 +662,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
                                                   TOTAL_METRIC[codec.name + metric + str(target)] / float(len(images))))
 
     CONNECTION.close()
+    LOGGER.info("\n\n")
     LOGGER.info("[*] --------------------------- Done --------------------------- [*]")
     sys.exit(0)
 
@@ -670,7 +671,7 @@ if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
     main(metric='ssim', target_arr=[0.9, 0.5, 0.6, 0.3], target_tol=0.005, db_file_name='encoding_results_ssim.db',
-         only_perform_missing_encodes=False)
+         only_perform_missing_encodes=True)
     # main(metric='ssim', target_arr=[0.92, 0.95, 0.97, 0.99], target_tol=0.005, db_file_name='encoding_results_ssim.db')
     # main(metric='psnr', target_arr=[75, 80, 85, 90, 95], target_tol=0.5, db_file_name='encoding_results_psnr.db')
 
