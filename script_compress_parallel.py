@@ -15,7 +15,6 @@ in order to achieve a given target VMAF quality. Having such encodes
 using different codecs that achieve the same VMAF score simplifies comparison
 of compression efficiency.
 """
-import errno
 import os
 import sys
 import subprocess
@@ -31,6 +30,8 @@ import ntpath
 import threading
 import sqlite3
 from skimage import io, measure
+
+from utils import *
 
 __author__ = "Aditya Mavlankar"
 __copyright__ = "Copyright 2019-2020, Netflix, Inc."
@@ -129,42 +130,6 @@ def setup_logging(worker, worker_id):
     LOGGER.setLevel('DEBUG')
 
 
-def mkdir_p(path):
-    """ mkdir -p
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
-
-def listdir_full_path(directory):
-    """ like os.listdir(), but returns full absolute paths
-    """
-    for f in os.listdir(directory):
-        if os.path.isfile(os.path.join(directory, f)):
-            yield os.path.abspath(os.path.join(directory, f))
-
-
-def decode(value):
-    """ Convert bytes to string, if needed
-    """
-    if isinstance(value, bytes):
-        return value.decode("utf-8")
-    return value
-
-
-def run_program_simple(*args, **kwargs):
-    """ simple way to run a command ignoring stderr and stdout
-    """
-    output = os.system(" ".join(*args) + " >/dev/null 2>&1", **kwargs)
-    if output != 0:
-        raise RuntimeError("failed to execute " + " ".join(*args))
-
-
 def run_program(*args, **kwargs):
     """ run command using subprocess.check_output, collect stdout and stderr together and return
     """
@@ -191,31 +156,6 @@ def get_dimensions(image):
     return width, height, depth
 
 
-def compute_metrics(ref_image, dist_image, width, height, temp_folder):
-    """ given a pair of reference and distorted images:
-        call vmaf and psnr functions, return results in a dict.
-    """
-    ref_image_path = os.getcwd() + '/' + get_filename_with_temp_folder(temp_folder, ntpath.basename(ref_image))
-    dis_image_path = os.getcwd() + '/' + get_filename_with_temp_folder(temp_folder, ntpath.basename(dist_image))
-    log_path = get_filename_with_temp_folder(temp_folder, 'stats.log')
-
-    source = io.imread(ref_image_path)
-    encode = io.imread(dis_image_path)
-    psnr_value = measure.compare_psnr(source, encode, data_range=255)
-    mse_value = measure.compare_mse(source, encode)
-    ssim_value = measure.compare_ssim(source, encode, multichannel=True)
-    stats = dict()
-    stats['psnr'] = psnr_value
-    stats['mse'] = mse_value
-    stats['ssim'] = ssim_value
-
-    with open(log_path, 'w') as fob:
-        fob.write("[*] ref_image={}\n".format(ref_image_path))
-        fob.write("[*] dis_image={}\n".format(dis_image_path))
-        fob.write("[*] MSE={}\n".format(mse_value))
-        fob.write("[*] PSNR={}\n".format(psnr_value))
-        fob.write("[*] SSIM={}\n".format(ssim_value))
-    return stats
 
 
 def my_exec(cmd):
@@ -224,10 +164,7 @@ def my_exec(cmd):
     return run_program(cmd)
 
 
-def get_filename_with_temp_folder(temp_folder, filename):
-    """ helper to get filename with temp folder
-    """
-    return os.path.join(temp_folder, filename)
+
 
 
 def kakadu_encode_helper(image, temp_folder, param, codec):
@@ -601,32 +538,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
             tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
 
 
-def get_insert_command():
-    """ helper to get DB insert command
-    """
-    return '''INSERT INTO ENCODES (ID,SOURCE,WIDTH,HEIGHT,CODEC,CODEC_PARAM,TEMP_FOLDER,TARGET_METRIC,TARGET_VALUE,
-    SSIM,MSE,PSNR,FILE_SIZE_BYTES,ENCODED_FILE) 
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'''
 
-
-def get_create_table_command():
-    """ helper to get create table command
-    """
-    return '''CREATE TABLE ENCODES
-         (ID TEXT PRIMARY KEY     NOT NULL,
-         SOURCE           TEXT    NOT NULL,
-         WIDTH            INT     NOT NULL,
-         HEIGHT           INT     NOT NULL,
-         CODEC            TEXT    NOT NULL,
-         CODEC_PARAM      REAL    NOT NULL,
-         TEMP_FOLDER      TEXT    NOT NULL,
-         TARGET_METRIC    TEXT    NOT NULL,
-         TARGET_VALUE     REAL    NOT NULL,
-         SSIM             REAL    NOT NULL,
-         MSE              REAL    NOT NULL,
-         PSNR             REAL    NOT NULL,
-         FILE_SIZE_BYTES  REAL    NOT NULL,
-         ENCODED_FILE     TEXT    NOT NULL);'''
 
 
 def update_stats(results, verbose=0):
@@ -673,12 +585,7 @@ def update_stats(results, verbose=0):
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
-def remove_files_keeping_encode(temp_folder, encoded_file):
-    """ remove files but keep encode
-    """
-    for f in listdir_full_path(temp_folder):
-        if ntpath.basename(f) != ntpath.basename(encoded_file):
-            os.remove(f)
+
 
 
 def error_function(error):
