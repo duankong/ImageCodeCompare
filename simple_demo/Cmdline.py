@@ -2,7 +2,7 @@
 # define the image code class
 # ====================================
 import os
-from utils import addroot, showcmd
+from simple_demo import addroot, showcmd
 
 
 class JPEG:

@@ -1,5 +1,4 @@
-import os
-from Cmdline import JPEG, JPEG2000, WebP, BPG
+from simple_demo.Cmdline import JPEG, JPEG2000, WebP, BPG
 
 if __name__ == '__main__':
     bmpfile = 'flower.bmp'
