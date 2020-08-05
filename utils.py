@@ -14,3 +14,6 @@ def addroot(input, output, source_path="/code/images/sourceimage/",
 def showcmd(verbose, cmdline):
     if verbose > 0:
         print("[*] {}".format(cmdline))
+
+if __name__ == '__main__':
+    pass
