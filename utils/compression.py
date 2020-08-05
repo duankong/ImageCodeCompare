@@ -1,7 +1,65 @@
 import os
 import ntpath
+
 from skimage import measure, io
+from collections import namedtuple
+
 from .utils_common import get_filename_with_temp_folder
+
+
+def tuple_codes():
+    CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
+    TUPLE_CODECS = (
+        # CodecType('jpeg', False, 5, 100, 1, '420'),
+        # CodecType('jpeg', False, 5, 100, 1, '444'),
+        # CodecType('jpeg', False, 5, 100, 1, '444u'),
+
+        # CodecType('jpeg-mse', False, 5, 100, 1, '420'),
+        # CodecType('jpeg-mse', False, 5, 100, 1, '444'),
+        # CodecType('jpeg-mse', False, 5, 100, 1, '444u'),
+
+        # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '420'),
+        # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444'),
+        # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444u'),
+
+        # CodecType('jpeg-im', False, 5, 100, 1, '420'),
+        # CodecType('jpeg-im', False, 5, 100, 1, '444'),
+        # CodecType('jpeg-im', False, 5, 100, 1, '444u'),
+
+        # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '420'),
+        # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '444'),
+        # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '444u'),
+
+        # # webp can only encode 420
+        # CodecType('webp', False, 5, 100, 1, '420'),
+        # CodecType('webp', False, 5, 100, 1, '444u'),
+
+        CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '420'),
+        # CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '444'),
+        # CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '444u'),
+
+        # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '420'),
+        # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '444'),
+        # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '444u'),
+
+        # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '420'),
+        # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '444'),
+        # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '444u'),
+
+        # CodecType('hevc', True, 10, 51, 1, '420'),
+        # CodecType('hevc', True, 10, 51, 1, '444'),
+        # CodecType('hevc', True, 10, 51, 1, '444u'),
+
+        # CodecType('avif-mse', True, 8, 63, 1, '420'),
+        # CodecType('avif-mse', True, 8, 63, 1, '444'),
+        # CodecType('avif-mse', True, 8, 63, 1, '444u'),
+
+        # CodecType('avif-ssim', True, 8, 63, 1, '420'),
+        # CodecType('avif-ssim', True, 8, 63, 1, '444'),
+        # CodecType('avif-ssim', True, 8, 63, 1, '444u'),
+
+    )
+    return  TUPLE_CODECS
 
 
 def compute_metrics(ref_image, dist_image, width, height, temp_folder):

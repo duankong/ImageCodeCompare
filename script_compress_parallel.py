@@ -46,60 +46,9 @@ TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
 
-CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
-TUPLE_CODECS = (
-    # CodecType('jpeg', False, 5, 100, 1, '420'),
-    # CodecType('jpeg', False, 5, 100, 1, '444'),
-    # CodecType('jpeg', False, 5, 100, 1, '444u'),
-
-    # CodecType('jpeg-mse', False, 5, 100, 1, '420'),
-    # CodecType('jpeg-mse', False, 5, 100, 1, '444'),
-    # CodecType('jpeg-mse', False, 5, 100, 1, '444u'),
-
-    # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '420'),
-    # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444'),
-    # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444u'),
-
-    # CodecType('jpeg-im', False, 5, 100, 1, '420'),
-    # CodecType('jpeg-im', False, 5, 100, 1, '444'),
-    # CodecType('jpeg-im', False, 5, 100, 1, '444u'),
-
-    # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '420'),
-    # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '444'),
-    # CodecType('jpeg-hvs-psnr', False, 5, 100, 1, '444u'),
-
-    # # webp can only encode 420
-    # CodecType('webp', False, 5, 100, 1, '420'),
-    # CodecType('webp', False, 5, 100, 1, '444u'),
-
-    CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '420'),
-    # CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '444'),
-    # CodecType('kakadu-mse', False, 0.01, 3.0, 0.03, '444u'),
-
-    # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '420'),
-    # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '444'),
-    # CodecType('kakadu-visual', False, 0.01, 3.0, 0.03, '444u'),
-
-    # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '420'),
-    # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '444'),
-    # CodecType('openjpeg', False, 30.0, 60.0, 0.05, '444u'),
-
-    # CodecType('hevc', True, 10, 51, 1, '420'),
-    # CodecType('hevc', True, 10, 51, 1, '444'),
-    # CodecType('hevc', True, 10, 51, 1, '444u'),
-
-    # CodecType('avif-mse', True, 8, 63, 1, '420'),
-    # CodecType('avif-mse', True, 8, 63, 1, '444'),
-    # CodecType('avif-mse', True, 8, 63, 1, '444u'),
-
-    # CodecType('avif-ssim', True, 8, 63, 1, '420'),
-    # CodecType('avif-ssim', True, 8, 63, 1, '444'),
-    # CodecType('avif-ssim', True, 8, 63, 1, '444u'),
-
-)
-
 LOGGER = logging.getLogger('image.compression')
 CONNECTION = None
+TUPLE_CODECS = tuple_codes()
 
 
 def setup_logging(worker, worker_id):
@@ -156,15 +105,10 @@ def get_dimensions(image):
     return width, height, depth
 
 
-
-
 def my_exec(cmd):
     """ helper to choose method for running commands
     """
     return run_program(cmd)
-
-
-
 
 
 def kakadu_encode_helper(image, temp_folder, param, codec):
@@ -538,9 +482,6 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
             tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
 
 
-
-
-
 def update_stats(results, verbose=0):
     """ callback function called when a worker process finishes an encoding job with target quality value
     """
@@ -583,9 +524,6 @@ def update_stats(results, verbose=0):
         CONNECTION.rollback()
 
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
-
-
-
 
 
 def error_function(error):
@@ -638,8 +576,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
     setup_logging(worker=False, worker_id=multiprocessing.current_process().ident)
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),
-        multiprocessing.current_process().ident,
-        threading.current_thread().ident)
+        multiprocessing.current_process().ident, threading.current_thread().ident)
 
     if only_perform_missing_encodes:
         if os.path.isfile(db_file_name):
@@ -665,7 +602,6 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
             width, height, depth = get_dimensions(image)
             LOGGER.info(
                 "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
-
             for codec in TUPLE_CODECS:
                 LOGGER.debug(" ")
                 skip_encode = False
@@ -704,24 +640,26 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
         for codec in TUPLE_CODECS:
             for target in target_arr:
                 if codec.name + codec.subsampling in TOTAL_ERRORS:
-                    LOGGER.info('  {}: {} (Total errors {})'.format(codec.name  + metric + str(target),
-                                                                    TOTAL_BYTES[codec.name  + metric + str(target)] / 1000.0,
-                                                                    TOTAL_ERRORS[codec.name  + metric + str(target)]))
+                    LOGGER.info('  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
+                                                                    TOTAL_BYTES[
+                                                                        codec.name + metric + str(target)] / 1000.0,
+                                                                    TOTAL_ERRORS[codec.name + metric + str(target)]))
                 else:
                     LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-                                                  TOTAL_BYTES[codec.name  + metric + str(target)] / 1000.0))
+                                                  TOTAL_BYTES[codec.name + metric + str(target)] / 1000.0))
 
         LOGGER.info("Average metric value:")
         for codec in TUPLE_CODECS:
             for target in target_arr:
                 if codec.name + codec.subsampling in TOTAL_ERRORS:
-                    LOGGER.info('  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
-                                                                    TOTAL_METRIC[codec.name  + metric + str(target)]
-                                                                    / float(len(images)),
-                                                                    TOTAL_ERRORS[codec.name  + metric + str(target)]))
+                    LOGGER.info(
+                        '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
+                                                            TOTAL_METRIC[codec.name + metric + str(target)]
+                                                            / float(len(images)),
+                                                            TOTAL_ERRORS[codec.name + metric + str(target)]))
                 else:
                     LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-                                                  TOTAL_METRIC[codec.name  + metric + str(target)] / float(len(images))))
+                                                  TOTAL_METRIC[codec.name + metric + str(target)] / float(len(images))))
 
     CONNECTION.close()
     LOGGER.info("[*] --------------------------- Done --------------------------- [*]")
