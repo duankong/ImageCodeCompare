@@ -102,6 +102,46 @@ RUN mkdir -p /tools && \
 # Prepare
 RUN echo "\e[1;33;41m ==========  Prepare  ========= \e[0m"
 
+#ARG        PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig
+#ARG        LD_LIBRARY_PATH=/opt/ffmpeg/lib
+ARG        PREFIX=/opt/ffmpeg
+
+ENV         X265_VERSION=3.2                    
+            
+
+### x265 http://x265.org/
+RUN \
+        DIR=/tmp/x265 && \
+        mkdir -p ${DIR} && \
+        cd ${DIR} && \
+        curl -sL https://download.videolan.org/pub/videolan/x265/x265_${X265_VERSION}.tar.gz  | \
+        tar -zx && \
+        cd x265_${X265_VERSION}/build/linux && \
+        sed -i "/-DEXTRA_LIB/ s/$/ -DCMAKE_INSTALL_PREFIX=\${PREFIX}/" multilib.sh && \
+        sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF/" multilib.sh && \
+        ./multilib.sh && \
+        make -C 8bit install && \
+        rm -rf ${DIR}
+
+### FLIF
+RUN echo "\e[1;33;41m ==========  FLIF  ========= \e[0m"
+
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget -O flif.zip  https://github.com/FLIF-hub/FLIF/archive/master.zip  && \
+    unzip flif.zip && \
+    rm -f flif.zip && \
+    cd /tools/FLIF-master  && \
+    apt-get install -yq libsdl2-dev && \
+    make flif && \
+    make install
+
+
+
+RUN     buildDeps="automake \
+                   libtool" && \
+        apt-get -yqq update && \
+        apt-get install -yq --no-install-recommends ${buildDeps}
 
 
 
