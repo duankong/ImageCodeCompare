@@ -299,7 +299,7 @@ def f(param, codec, image, width, height, temp_folder):
                '-o', encoded_file]
         my_exec(cmd)
 
-        cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
+        cmd = ['opj_decompress', '-maini', encoded_file, '-o', decoded_file]
         my_exec(cmd)
 
         cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
@@ -671,7 +671,7 @@ if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
     main(metric='ssim', target_arr=[0.9, 0.5, 0.6, 0.3], target_tol=0.005, db_file_name='encoding_results_ssim.db',
-         only_perform_missing_encodes=True)
+         only_perform_missing_encodes=False)
     # main(metric='ssim', target_arr=[0.92, 0.95, 0.97, 0.99], target_tol=0.005, db_file_name='encoding_results_ssim.db')
     # main(metric='psnr', target_arr=[75, 80, 85, 90, 95], target_tol=0.5, db_file_name='encoding_results_psnr.db')
 
