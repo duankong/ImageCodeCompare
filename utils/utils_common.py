@@ -1,6 +1,7 @@
 import os
 import errno
 import ntpath
+import glob
 
 
 def mkdir_p(path):
@@ -51,6 +52,20 @@ def get_filename_with_temp_folder(temp_folder, filename):
     """ helper to get filename with temp folder
     """
     return os.path.join(temp_folder, filename)
+
+
+def remove_exist_file(temp_folder, filename, LOGGER):
+    for filePath in glob.glob(get_filename_with_temp_folder(temp_folder, filename)):
+        try:
+            os.remove(filePath)
+        except:
+            LOGGER.error("Error while deleting file : " + filePath)
+
+
+def float_to_int(param):
+    """help to convert param to int
+    """
+    return str(int(float(param)))
 
 
 if __name__ == '__main__':
