@@ -85,7 +85,6 @@ def run_program(*args, **kwargs):
     """
     kwargs.setdefault("stderr", subprocess.STDOUT)
     kwargs.setdefault("shell", True)
-
     try:
         output = subprocess.check_output(" ".join(*args), **kwargs)
         return decode(output)
@@ -112,16 +111,41 @@ def my_exec(cmd):
     return run_program(cmd)
 
 
-def convert_format(image, temp_folder, format):
-    image_convert = get_filename_with_temp_folder(temp_folder, "image_convert.{}".format(str(format)))
+def convert_format(image, temp_folder, fileneme):
+    image_convert = get_filename_with_temp_folder(temp_folder, fileneme)
     cmd = ['convert', image, image_convert]
     my_exec(cmd)
     return image_convert
 
 
+def jpegxt_encode_helper_exart(codec, cmd, encoded_file, temp_folder):
+    if codec == 'jpeg-mse':
+        cmd[1:1] = ['-qt', '1']
+    elif codec == 'jpeg-ms-ssim':
+        cmd[1:1] = ['-qt', '2']
+    elif codec == 'jpeg-im':
+        cmd[1:1] = ['-qt', '3']
+    elif codec == 'jpeg-hvs-psnr':
+        cmd[1:1] = ['-qt', '4']
+    my_exec(cmd)
+
+    cmd = ['/tools/jpeg/jpeg', encoded_file, get_filename_with_temp_folder(temp_folder, 'decoded.ppm')]
+    my_exec(cmd)
+
+
+def jpegxt_encode_helper(image, temp_folder, param):
+    # convert
+    image_convert = convert_format(image, temp_folder, "source.pgm")
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
+    cmd = ['/tools/jpeg/jpeg', '-q', float_to_int(param), image_convert, encoded_file]
+    # jpegxt_encode_helper_exart(codec, cmd, encoded_file, temp_folder)
+    my_exec(cmd)
+    return encoded_file, encoded_file
+
+
 def kakadu_encode_helper(image, temp_folder, param):
     # convert
-    image_convert = convert_format(image, temp_folder, "pgm")
+    image_convert = convert_format(image, temp_folder, "source.pgm")
     # kakadu encode
     param = str(param)
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
@@ -130,30 +154,20 @@ def kakadu_encode_helper(image, temp_folder, param):
     run_program(cmd, cwd=temp_folder)
     # kakadu decode
     decoded_file = get_filename_with_temp_folder(temp_folder, 'kakadu_decoded.bmp')
-
-    for filePath in glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp')):
-        try:
-            os.remove(filePath)
-        except:
-            LOGGER.error("Error while deleting file : " + filePath)
+    remove_exist_file(temp_folder, 'kakadu_decoded*.bmp', LOGGER)
     cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
            '-o', decoded_file]
     my_exec(cmd)
-    decoded_bmp_files = glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp'))
-    assert len(decoded_bmp_files) == 1
-    decoded_file = decoded_bmp_files[0]
+    assert len(glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp'))) == 1
     return encoded_file, decoded_file
 
 
 def jpeg_encode_helper(image, temp_folder, param):
     # convert
-    source_image_convert = get_filename_with_temp_folder(temp_folder, 'source.pgm')
-    cmd = ['convert', image, source_image_convert]
-    my_exec(cmd)
+    source_image_convert = convert_format(image, temp_folder, "source.pgm")
     # jpeg encode
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-    cmd = ['/tools/jpeg-9d/cjpeg', '-dct int', '-quality', str(param), '-outfile', encoded_file,
-           source_image_convert]
+    cmd = ['/tools/jpeg-9d/cjpeg', '-quality', float_to_int(param), '-outfile', encoded_file, source_image_convert]
     my_exec(cmd)
     # jpeg decoder
     decoded_file = get_filename_with_temp_folder(temp_folder, 'jpeg_decode.bmp')
@@ -169,15 +183,46 @@ def webp_encod_helper(image, temp_folder, param):
            '-o', encoded_file]
     my_exec(cmd)
     # webp decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'webp_decode.png')
+    decoded_file = get_filename_with_temp_folder(temp_folder, 'webp_decode.pgm')
     cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/dwebp', '-quiet', encoded_file, '-o', decoded_file]
     my_exec(cmd)
 
     # convert
     source_image_convert = get_filename_with_temp_folder(temp_folder, 'webp_decode_convert.png')
-    cmd = ['convert', image, '-colorspace RGB', '-colorspace Gray', source_image_convert]
+    # cmd = ['convert', decoded_file, source_image_convert]
+    cmd = ['convert', decoded_file, '-colorspace RGB', '-colorspace Gray', source_image_convert]
     my_exec(cmd)
     return encoded_file, source_image_convert
+
+
+def bpg_encode_helper(image, temp_folder, param):
+    # bpg encode
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
+    cmd = ['/tools/libbpg-master/bpgenc', '-b', '8', '-m', '9', '-q', str(param), '-o', encoded_file, image]
+    my_exec(cmd)
+    # bpg decoder
+    decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.png')
+    cmd = ['/tools/libbpg-master/bpgdec', '-b', '8', '-o', decoded_file, encoded_file]
+    my_exec(cmd)
+
+    # convert
+    source_image_convert = get_filename_with_temp_folder(temp_folder, 'bpg_decode_convert.png')
+    # cmd = ['convert', decoded_file, source_image_convert]
+    cmd = ['convert', decoded_file, '-colorspace RGB', '-colorspace Gray', source_image_convert]
+    my_exec(cmd)
+    return encoded_file, source_image_convert
+
+
+def flif_encode_helper(image, temp_folder, param):
+    # bpg encode
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
+    cmd = ['/tools/FLIF-master/src/flif', '-e', '-Q', str(param), image, '-o', encoded_file]
+    my_exec(cmd)
+    # bpg decoder
+    decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
+    cmd = ['/tools/FLIF-master/src/flif', '-d', encoded_file, '-o', decoded_file]
+    my_exec(cmd)
+    return encoded_file, decoded_file
 
 
 def f(param, codec, image, width, height, temp_folder):
@@ -193,7 +238,6 @@ def f(param, codec, image, width, height, temp_folder):
     :param temp_folder: directory for intermediate files, encodes, stats files, etc.
     :return:
     """
-    subsampling = '420'
 
     if not isinstance(param, str):
         param = str(param)
@@ -204,9 +248,6 @@ def f(param, codec, image, width, height, temp_folder):
     my_exec(cmd)
 
     source_image = get_filename_with_temp_folder(temp_folder, ntpath.basename(image))
-
-    encoded_file = ""
-    decoded_file = ""
 
     if codec in ['jpeg']:
 
@@ -219,79 +260,19 @@ def f(param, codec, image, width, height, temp_folder):
 
         encoded_file, decoded_file = kakadu_encode_helper(image, temp_folder, param)
 
-    elif codec == 'hevc' and subsampling in ['420', '444u']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        my_exec(cmd)
+    elif codec in ['bpg']:
+        encoded_file, decoded_file = bpg_encode_helper(image, temp_folder, param)
 
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
-        cmd = ['/tools/HM-16.20+SCM-8.8/bin/TAppEncoderStatic',
-               '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_main_rext.cfg', '-f', '1', '-fr', '1', '-q', param,
-               '-wdt', width, '-hgt', height, '--InputChromaFormat=420', '--ConformanceWindowMode=1',
-               '-i', source_yuv, '-b', encoded_file, '-o', '/dev/null']
-        my_exec(cmd)
-
-        cmd = ['/tools/HM-16.20+SCM-8.8/bin/TAppDecoderStatic', '-b', encoded_file, '-d', '8', '-o', decoded_yuv]
-        my_exec(cmd)
-
-        if subsampling == '444u':
-            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
-                                                                            height, subsampling)
-
-    elif codec == 'hevc' and subsampling == '444':
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        my_exec(cmd)
-
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
-        cmd = ['/tools/HM-16.20+SCM-8.8/bin/TAppEncoderStatic',
-               '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_main_rext.cfg', '-f', '1', '-fr', '1', '-q', param,
-               '-wdt', width, '-hgt', height, '--InputChromaFormat=444', '--ConformanceWindowMode=1',
-               '-i', source_yuv, '-b', encoded_file, '-o', '/dev/null']
-        my_exec(cmd)
-
-        cmd = ['/tools/HM-16.20+SCM-8.8/bin/TAppDecoderStatic', '-b', encoded_file, '-d', '8', '-o', decoded_yuv]
-        my_exec(cmd)
-
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        my_exec(cmd)
-
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
-        cmd = ['aomenc', '--i420', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
-               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
-               '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
-               '--frame-boost=0', '--disable-warning-prompt',
-               '--output={}'.format(encoded_file), source_yuv]
-        if codec == 'avif-ssim':
-            cmd[-2:-2] = ['--tune=ssim']
-        my_exec(cmd)
-
-        cmd = ['aomdec', '--i420', '-o', decoded_yuv, encoded_file]
-        my_exec(cmd)
-
-        if subsampling == '444u':
-            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
-                                                                            height, subsampling)
-
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling == '444':
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        my_exec(cmd)
-
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
-        cmd = ['aomenc', '--i444', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
-               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
-               '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
-               '--frame-boost=0', '--disable-warning-prompt',
-               '--output={}'.format(encoded_file), source_yuv]
-        if codec == 'avif-ssim':
-            cmd[-2:-2] = ['--tune=ssim']
-        my_exec(cmd)
-
-        cmd = ['aomdec', '--rawvideo', '-o', decoded_yuv, encoded_file]
-        my_exec(cmd)
-
+    elif codec in ['flif']:
+        encoded_file, decoded_file = flif_encode_helper(image, temp_folder, param)
+    elif codec in ['jpegxt']:
+        encoded_file, decoded_file = jpegxt_encode_helper(image, temp_folder, param)
     else:
         raise RuntimeError("Unsupported codec : {} ".format(codec))
-    stats = compute_metrics(source_image, decoded_file, width, height, temp_folder)
+
+    assert get_dimensions(source_image)[2] == get_dimensions(decoded_file)[2]
+
+    stats = compute_metrics(source_image, decoded_file, temp_folder)
     stats['file_size_bytes'] = os.path.getsize(encoded_file)
     return stats, encoded_file
 
@@ -329,15 +310,12 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     """
     temp_uuid = str(uuid.uuid4())
     temp_folder = WORK_DIR + make_my_tuple(image, width, height, codec, metric, target, temp_uuid)
-    print("******* {}".format(temp_folder))
     tuple_minus_uuid = make_my_tuple(image, width, height, codec, metric, target)
     mkdir_p(temp_folder)
     LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
                        inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height)))
 
     c = (a + b) / 2
-    if isinstance(ab_tol, int):
-        c = int(c)
     last_c = c
     while (b - a) > ab_tol:
         quality, encoded_file = f(c, codec, image, width, height, temp_folder)
@@ -358,8 +336,6 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
                 else:
                     b = c
             c = (a + b) / 2
-            if isinstance(ab_tol, int):
-                c = int(c)
 
     return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file),
             tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
@@ -517,32 +493,32 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
             LOGGER.error(repr(e))
             TOTAL_ERRORS[result[1] + result[2]] += 1
 
-    # print("\n\n")
-    # if not only_perform_missing_encodes:
-    #     LOGGER.info("Total payload in kilo Bytes:")
-    #     for codec in TUPLE_CODECS:
-    #         for target in target_arr:
-    #             if codec.name + codec.subsampling in TOTAL_ERRORS:
-    #                 LOGGER.info('  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
-    #                                                                 TOTAL_BYTES[
-    #                                                                     codec.name + metric + str(target)] / 1000.0,
-    #                                                                 TOTAL_ERRORS[codec.name + metric + str(target)]))
-    #             else:
-    #                 LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-    #                                               TOTAL_BYTES[codec.name + metric + str(target)] / 1000.0))
-    #
-    #     LOGGER.info("Average metric value:")
-    #     for codec in TUPLE_CODECS:
-    #         for target in target_arr:
-    #             if codec.name + codec.subsampling in TOTAL_ERRORS:
-    #                 LOGGER.info(
-    #                     '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
-    #                                                         TOTAL_METRIC[codec.name + metric + str(target)]
-    #                                                         / float(len(images)),
-    #                                                         TOTAL_ERRORS[codec.name + metric + str(target)]))
-    #             else:
-    #                 LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-    #                                               TOTAL_METRIC[codec.name + metric + str(target)] / float(len(images))))
+    print("\n\n")
+    if not only_perform_missing_encodes:
+        LOGGER.info("Total payload in kilo Bytes:")
+        for codec in TUPLE_CODECS:
+            for target in target_arr:
+                if codec.name + codec.subsampling in TOTAL_ERRORS:
+                    LOGGER.info('  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
+                                                                    TOTAL_BYTES[
+                                                                        codec.name + metric + str(target)] / 1000.0,
+                                                                    TOTAL_ERRORS[codec.name + metric + str(target)]))
+                else:
+                    LOGGER.info('  {}: {}'.format(codec.name + metric + str(target),
+                                                  TOTAL_BYTES[codec.name + metric + str(target)] / 1000.0))
+
+        LOGGER.info("Average metric value:")
+        for codec in TUPLE_CODECS:
+            for target in target_arr:
+                if codec.name + codec.subsampling in TOTAL_ERRORS:
+                    LOGGER.info(
+                        '  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
+                                                            TOTAL_METRIC[codec.name + metric + str(target)]
+                                                            / float(len(images)),
+                                                            TOTAL_ERRORS[codec.name + metric + str(target)]))
+                else:
+                    LOGGER.info('  {}: {}'.format(codec.name + metric + str(target),
+                                                  TOTAL_METRIC[codec.name + metric + str(target)] / float(len(images))))
     #
     # CONNECTION.close()
     LOGGER.info("\n\n")
@@ -553,10 +529,10 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
 if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
-    main(metric='ssim', target_arr=[0.9, 0.8, 0.7], target_tol=0.005, db_file_name='encoding_results_ssim.db',
+    main(metric='ssim', target_arr=[0.9, 0.99], target_tol=0.002, db_file_name='encoding_results_ssim.db',
          only_perform_missing_encodes=False)
-    # main(metric='ssim', target_arr=[0.92, 0.95, 0.97, 0.99], target_tol=0.005, db_file_name='encoding_results_ssim.db')
-    # main(metric='psnr', target_arr=[75, 80, 85, 90, 95], target_tol=0.5, db_file_name='encoding_results_psnr.db')
+
+    # main(metric='psnr', target_arr=[25, 30, 35, 40], target_tol=0.5, db_file_name='encoding_results_psnr.db')
 
     # to perform encodes targeting a certain file size
     # main(metric='file_size_bytes', target_arr=[4000, 20000, 40000, 80000], target_tol=500, db_file_name='encoding_results_file_size.db')
