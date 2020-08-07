@@ -11,13 +11,17 @@ FROM ubuntu:18.04 AS base
 WORKDIR     /image_test          
 
 # Start
-RUN echo "\e[1;33;41m ==========  Start  ========= \e[0m"
+RUN     echo "\e[1;33;41m ==========  Start  ========= \e[0m"
 
-COPY sources.list /etc/apt/
+COPY    sources.list /etc/apt/
 
-RUN     apt-get -yqq update && \
-        apt-get -y upgrade && \
-        apt-get install -yq --no-install-recommends ca-certificates expat libgomp1 && \
+ARG     PREFIX=/opt/ffmpeg
+
+ENV     X265_VERSION=3.2
+
+RUN     apt-get -y upgrade && \
+        apt-get -yqq update && \
+        apt-get install -yq --no-install-recommends ca-certificates expat libgomp1 cmake && \
         apt-get autoremove -y && \
         apt-get clean -y
 
@@ -25,7 +29,6 @@ RUN     buildDeps="wget \
                    unzip \
                    gcc \
                    g++ \
-                   cmake \
                    make \
                    python3 \
                    python3-pip \
@@ -44,7 +47,9 @@ RUN     buildDeps="wget \
                    libsdl-image1.2-dev \
                    yasm \
                    libglu1 \
-                   libxi6" && \
+                   libxi6 \
+                   automake \
+                   libtool" && \
         apt-get -yqq update && \
         apt-get install -yq --no-install-recommends ${buildDeps} && \
         pip3 install scikit-image==0.15.0
@@ -52,7 +57,7 @@ RUN     buildDeps="wget \
 # SQLite3 is to store metrics.
 RUN apt-get install -y sqlite3 libsqlite3-dev
 
-# JPEG2000
+### JPEG2000
 RUN echo "\e[1;33;41m ==========  Kakadu  ========= \e[0m"
 
 RUN mkdir -p /tools && \
@@ -63,7 +68,7 @@ RUN mkdir -p /tools && \
 
 ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
 
-# JPEG
+### JPEG
 RUN echo "\e[1;33;41m ==========  JPEG  ========= \e[0m"
 
 RUN mkdir -p /tools && \
@@ -76,7 +81,7 @@ RUN mkdir -p /tools && \
     make &&\
     make test
 
-# WEBP
+### WEBP
 RUN echo "\e[1;33;41m ==========  WebP  ========= \e[0m"
 
 RUN mkdir -p /tools && \
@@ -86,7 +91,7 @@ RUN mkdir -p /tools && \
     rm -f libwebp.tar.gz
 
 
-# BPG
+### BPG
 RUN echo "\e[1;33;41m ==========  BPG  ========= \e[0m"
 
 COPY libbpg-master.zip /tools
@@ -98,30 +103,6 @@ RUN mkdir -p /tools && \
     rm -f libbpg-master.zip && \
     cd /tools/libbpg-master  && \
     make
-
-# Prepare
-RUN echo "\e[1;33;41m ==========  Prepare  ========= \e[0m"
-
-#ARG        PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig
-#ARG        LD_LIBRARY_PATH=/opt/ffmpeg/lib
-ARG        PREFIX=/opt/ffmpeg
-
-ENV         X265_VERSION=3.2                    
-            
-
-### x265 http://x265.org/
-RUN \
-        DIR=/tmp/x265 && \
-        mkdir -p ${DIR} && \
-        cd ${DIR} && \
-        curl -sL https://download.videolan.org/pub/videolan/x265/x265_${X265_VERSION}.tar.gz  | \
-        tar -zx && \
-        cd x265_${X265_VERSION}/build/linux && \
-        sed -i "/-DEXTRA_LIB/ s/$/ -DCMAKE_INSTALL_PREFIX=\${PREFIX}/" multilib.sh && \
-        sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF/" multilib.sh && \
-        ./multilib.sh && \
-        make -C 8bit install && \
-        rm -rf ${DIR}
 
 ### FLIF
 RUN echo "\e[1;33;41m ==========  FLIF  ========= \e[0m"
@@ -136,12 +117,36 @@ RUN mkdir -p /tools && \
     make flif && \
     make install
 
+### JPEG-XT
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget -O jpeg.zip https://jpeg.org/downloads/jpegxt/reference1367abcd89.zip && \
+    unzip jpeg.zip -d jpeg && \
+    rm -f jpeg.zip && \
+    cd jpeg && \
+    ./configure && \
+    make final
+
+# Prepare
+RUN echo "\e[1;33;41m ==========  Prepare  ========= \e[0m"
+
+#ARG        PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig
+#ARG        LD_LIBRARY_PATH=/opt/ffmpeg/lib
 
 
-RUN     buildDeps="automake \
-                   libtool" && \
-        apt-get -yqq update && \
-        apt-get install -yq --no-install-recommends ${buildDeps}
+### x265 http://x265.org/
+RUN DIR=/tmp/x265 && \
+    mkdir -p ${DIR} && \
+    cd ${DIR} && \
+    curl -sL https://download.videolan.org/pub/videolan/x265/x265_${X265_VERSION}.tar.gz  | \
+    tar -zx && \
+    cd x265_${X265_VERSION}/build/linux && \
+    sed -i "/-DEXTRA_LIB/ s/$/ -DCMAKE_INSTALL_PREFIX=\${PREFIX}/" multilib.sh && \
+    sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF/" multilib.sh && \
+    ./multilib.sh && \
+    make -C 8bit install && \
+    rm -rf ${DIR}
+
 
 
 
