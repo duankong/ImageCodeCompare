@@ -1,7 +1,0 @@
-# cmdline
-
-挂载 docker run -it -v ${pwd} :/test test:0.3
-
-进入容器 docker exec -it 501ed07a4504  /bin/bash
-
-删除容器 docker rm $(docker ps -a -q)
