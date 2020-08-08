@@ -6,59 +6,44 @@
 #
 #
 
-FROM ubuntu:18.04 AS base
+FROM archlinux:20200705 AS base
 
 WORKDIR     /image_test          
 
 # Start
-RUN     echo "\e[1;33;41m ==========  Start  ========= \e[0m"
-
-COPY    sources.list /etc/apt/
+RUN     echo " ====================  START  ==================== "
 
 ARG     PREFIX=/opt/ffmpeg
 
 ENV     X265_VERSION=3.2
 
-RUN     apt-get -y upgrade && \
-        apt-get -yqq update && \
-        apt-get install -yq --no-install-recommends ca-certificates expat libgomp1 cmake && \
-        apt-get autoremove -y && \
-        apt-get clean -y
+RUN     pacman -Syu --noconfirm
 
 RUN     buildDeps="wget \
+                   vi \
                    unzip \
                    gcc \
-                   g++ \
                    make \
-                   python3 \
-                   python3-pip \
+                   cmake \
+                   diffutils \
+                   python \
+                   python-pip \
                    imagemagick \
-                   curl \
-                   libsm6 \
-                   libxext6 \
-                   libxrender-dev \
-                   libglib2.0-0 \
                    tree \
                    git \
-                   libpng-dev \
-                   libjpeg-dev \
-                   libsdl1.2-dev \
-                   libslang2-dev \
-                   libsdl-image1.2-dev \
-                   yasm \
-                   libglu1 \
-                   libxi6 \
                    automake \
-                   libtool" && \
-        apt-get -yqq update && \
-        apt-get install -yq --no-install-recommends ${buildDeps} && \
-        pip3 install scikit-image==0.15.0
+                   sqlite3 \
+                   yasm \
+                   sdl \
+                   sdl_image \
+                   pkg-config" && \
+        pacman -S --noconfirm ${buildDeps} && \
+       	buildPacket="scikit-image" &&\
+       	pip install ${buildPacket}
 
-# SQLite3 is to store metrics.
-RUN apt-get install -y sqlite3 libsqlite3-dev
 
 ### JPEG2000
-RUN echo "\e[1;33;41m ==========  Kakadu  ========= \e[0m"
+RUN echo " ====================  JPEG2000  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -69,7 +54,7 @@ RUN mkdir -p /tools && \
 ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
 
 ### JPEG
-RUN echo "\e[1;33;41m ==========  JPEG  ========= \e[0m"
+RUN echo " ====================  JPEG  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -82,7 +67,7 @@ RUN mkdir -p /tools && \
     make test
 
 ### WEBP
-RUN echo "\e[1;33;41m ==========  WebP  ========= \e[0m"
+RUN echo " ====================  WebP  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -90,34 +75,9 @@ RUN mkdir -p /tools && \
     tar xvzf libwebp.tar.gz && \
     rm -f libwebp.tar.gz
 
-
-### BPG
-RUN echo "\e[1;33;41m ==========  BPG  ========= \e[0m"
-
-COPY libbpg-master.zip /tools
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-#   wget -O bpg.tar.gz https://bellard.org/bpg/libbpg-0.9.8.tar.gz  && \
-    unzip libbpg-master.zip && \
-    rm -f libbpg-master.zip && \
-    cd /tools/libbpg-master  && \
-    make
-
-### FLIF
-RUN echo "\e[1;33;41m ==========  FLIF  ========= \e[0m"
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O flif.zip  https://github.com/FLIF-hub/FLIF/archive/master.zip  && \
-    unzip flif.zip && \
-    rm -f flif.zip && \
-    cd /tools/FLIF-master  && \
-    apt-get install -yq libsdl2-dev && \
-    make flif && \
-    make install
-
 ### JPEG-XT
+RUN echo " ====================  JPEG-XT  ==================== "
+
 RUN mkdir -p /tools && \
     cd /tools && \
     wget -O jpeg.zip https://jpeg.org/downloads/jpegxt/reference1367abcd89.zip && \
@@ -127,25 +87,39 @@ RUN mkdir -p /tools && \
     ./configure && \
     make final
 
-# Prepare
-RUN echo "\e[1;33;41m ==========  Prepare  ========= \e[0m"
+### FLIF
+RUN echo " ====================  FLIF  ==================== "
 
-#ARG        PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig
-#ARG        LD_LIBRARY_PATH=/opt/ffmpeg/lib
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget -O flif.zip  https://github.com/FLIF-hub/FLIF/archive/master.zip  && \
+    unzip flif.zip && \
+    rm -f flif.zip && \
+    cd /tools/FLIF-master  && \
+    make flif && \
+    make install
 
 
-### x265 http://x265.org/
-RUN DIR=/tmp/x265 && \
-    mkdir -p ${DIR} && \
-    cd ${DIR} && \
-    curl -sL https://download.videolan.org/pub/videolan/x265/x265_${X265_VERSION}.tar.gz  | \
-    tar -zx && \
-    cd x265_${X265_VERSION}/build/linux && \
-    sed -i "/-DEXTRA_LIB/ s/$/ -DCMAKE_INSTALL_PREFIX=\${PREFIX}/" multilib.sh && \
-    sed -i "/^cmake/ s/$/ -DENABLE_CLI=OFF/" multilib.sh && \
-    ./multilib.sh && \
-    make -C 8bit install && \
-    rm -rf ${DIR}
+### BPG
+RUN echo " ====================  BPG  ==================== "
+
+COPY libbpg-master.zip /tools
+
+RUN mkdir -p /tools && \
+    cd /tools && \
+    unzip libbpg-master.zip && \
+    rm -f libbpg-master.zip && \
+    cd /tools/libbpg-master  && \
+    make
+
+#COPY mirrorlist /etc/pacman.d/
+#
+#COPY pacman.conf /etc/
+#
+#RUN pacman -Syu --noconfirm
+
+
+
 
 
 
