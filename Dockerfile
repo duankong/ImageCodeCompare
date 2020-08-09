@@ -13,11 +13,13 @@ WORKDIR     /image_test
 # Start
 RUN     echo " ====================  START  ==================== "
 
-ARG     PREFIX=/opt/ffmpeg
+COPY mirrorlist /etc/pacman.d/
+COPY pacman.conf /etc/
+COPY bash.bashrc /etc/
 
-ENV     X265_VERSION=3.2
-
-RUN     pacman -Syu --noconfirm
+RUN     pacman -Sy && \
+#        pacman -Syu --noconfirm && \
+        source /etc/bash.bashrc
 
 RUN     buildDeps="wget \
                    vi \
@@ -36,14 +38,16 @@ RUN     buildDeps="wget \
                    yasm \
                    sdl \
                    sdl_image \
-                   pkg-config" && \
+                   pkg-config \
+                   libjpeg\
+                   ffmpeg" && \
         pacman -S --noconfirm ${buildDeps} && \
        	buildPacket="scikit-image" &&\
        	pip install ${buildPacket}
 
 
 ### JPEG2000
-RUN echo " ====================  JPEG2000  ==================== "
+RUN echo " ====================  JPEG2000 --- Kakadu  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -54,7 +58,7 @@ RUN mkdir -p /tools && \
 ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
 
 ### JPEG
-RUN echo " ====================  JPEG  ==================== "
+RUN echo " ====================  JPEG --- Independent JPEG Group  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -67,7 +71,7 @@ RUN mkdir -p /tools && \
     make test
 
 ### WEBP
-RUN echo " ====================  WebP  ==================== "
+RUN echo " ====================  WebP --- Goole  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -76,7 +80,7 @@ RUN mkdir -p /tools && \
     rm -f libwebp.tar.gz
 
 ### JPEG-XT
-RUN echo " ====================  JPEG-XT  ==================== "
+RUN echo " ====================  JPEG-XT --- Reference from jpeg.org ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -88,22 +92,21 @@ RUN mkdir -p /tools && \
     make final
 
 ### FLIF
-RUN echo " ====================  FLIF  ==================== "
+RUN echo " ====================  FLIF --- http://flif.info/  ==================== "
 
 RUN mkdir -p /tools && \
     cd /tools && \
-    wget -O flif.zip  https://github.com/FLIF-hub/FLIF/archive/master.zip  && \
-    unzip flif.zip && \
-    rm -f flif.zip && \
+    wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
+    tar xvf flif.tar.gz && \
+    rm -f flif.tar.gz && \
     cd /tools/FLIF-master  && \
     make flif && \
     make install
 
-
 ### BPG
-RUN echo " ====================  BPG  ==================== "
+RUN echo " ====================  BPG --- bellard.org ==================== "
 
-COPY libbpg-master.zip /tools
+COPY libbpg-master.zip  /tools
 
 RUN mkdir -p /tools && \
     cd /tools && \
@@ -112,12 +115,36 @@ RUN mkdir -p /tools && \
     cd /tools/libbpg-master  && \
     make
 
-#COPY mirrorlist /etc/pacman.d/
-#
-#COPY pacman.conf /etc/
-#
-#RUN pacman -Syu --noconfirm
+### AVIF
+RUN echo " ====================  AVIF --- https://aomedia.org/ ==================== "
 
+RUN     buildDeps="aom" && \
+        pacman -S --noconfirm ${buildDeps}
+
+### HEIF
+RUN echo " ====================  HEIF --- strukturag/libheif  ==================== "
+
+RUN     buildDeps="x265 \
+                   libde265 \
+                   cbindgen \
+                   autoconf \
+                   gdk-pixbuf2 \
+                   libtool" && \
+        pacman -S --noconfirm ${buildDeps}
+
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget https://github.com/strukturag/libheif/releases/download/v1.7.0/libheif-1.7.0.tar.gz && \
+    tar xvf libheif-1.7.0.tar.gz && \
+    rm -f libheif-1.7.0.tar.gz && \
+    cd /tools/libheif-1.7.0  && \
+    ./autogen.sh && \
+     autoreconf -ivf &&\
+    mkdir build && \
+    cd build && \
+    ../configure --prefix=/tools/libheif-1.7.0/build && \
+    make && \
+    make install
 
 
 
