@@ -1,7 +1,7 @@
 import os
 import ntpath
 
-from skimage import measure, io
+from skimage import  io,metrics
 from collections import namedtuple
 
 from .utils_common import get_filename_with_temp_folder
@@ -36,13 +36,13 @@ def compute_metrics(ref_image, dist_image, temp_folder):
     log_path = get_filename_with_temp_folder(temp_folder, 'stats.log')
     source = io.imread(ref_image_path)
     encode = io.imread(dis_image_path)
-    mse_value = measure.compare_mse(source, encode)
+    mse_value = metrics.mean_squared_error(source, encode)
     if mse_value == 0:
         psnr_value = float("inf")
     else:
-        psnr_value = measure.compare_psnr(source, encode, data_range=255)
+        psnr_value = metrics.peak_signal_noise_ratio(source, encode, data_range=255)
 
-    ssim_value = measure.compare_ssim(source, encode)
+    ssim_value = metrics.structural_similarity(source, encode)
     stats = dict()
     stats['psnr'] = psnr_value
     stats['mse'] = mse_value

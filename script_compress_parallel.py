@@ -265,8 +265,48 @@ def f(param, codec, image, width, height, temp_folder):
 
     elif codec in ['flif']:
         encoded_file, decoded_file = flif_encode_helper(image, temp_folder, param)
+
     elif codec in ['jpegxt']:
         encoded_file, decoded_file = jpegxt_encode_helper(image, temp_folder, param)
+
+    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
+        cmd = ['aomenc', '--i420', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
+               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
+               '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
+               '--frame-boost=0', '--disable-warning-prompt',
+               '--output={}'.format(encoded_file), source_yuv]
+        if codec == 'avif-ssim':
+            cmd[-2:-2] = ['--tune=ssim']
+        my_exec(cmd)
+
+        cmd = ['aomdec', '--i420', '-o', decoded_yuv, encoded_file]
+        my_exec(cmd)
+
+        if subsampling == '444u':
+            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
+                                                                            height, subsampling)
+
+    elif codec in ['avif-mse', 'avif-ssim'] and subsampling == '444':
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
+        cmd = ['aomenc', '--i444', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
+               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
+               '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
+               '--frame-boost=0', '--disable-warning-prompt',
+               '--output={}'.format(encoded_file), source_yuv]
+        if codec == 'avif-ssim':
+            cmd[-2:-2] = ['--tune=ssim']
+        my_exec(cmd)
+
+        cmd = ['aomdec', '--rawvideo', '-o', decoded_yuv, encoded_file]
+        my_exec(cmd)
+
     else:
         raise RuntimeError("Unsupported codec : {} ".format(codec))
 
