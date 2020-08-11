@@ -14,7 +14,7 @@ ImageFormat | Version | ReleaseTime
 
 #### ToDo :
 
-> - Support avif  and heif
+> - Support avif 
 >
 > - Decide final format
 >
