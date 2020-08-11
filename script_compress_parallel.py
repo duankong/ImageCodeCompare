@@ -216,11 +216,23 @@ def bpg_encode_helper(image, temp_folder, param):
 def flif_encode_helper(image, temp_folder, param):
     # bpg encode
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
-    cmd = ['/tools/FLIF-master/src/flif', '-e', '-Q', str(param), image, '-o', encoded_file]
+    cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-Q', str(param), image, '-o', encoded_file]
     my_exec(cmd)
     # bpg decoder
     decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
-    cmd = ['/tools/FLIF-master/src/flif', '-d', encoded_file, '-o', decoded_file]
+    cmd = ['/tools/FLIF-0.3/src/flif', '-d', encoded_file, '-o', decoded_file]
+    my_exec(cmd)
+    return encoded_file, decoded_file
+
+
+def heif_encode_helper(image, temp_folder, param):
+    # bpg encode
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
+    cmd = ['/tools/libheif-1.7.0/build/bin/heif-enc', '-q', str(param), image, '-o', encoded_file]
+    my_exec(cmd)
+    # bpg decoder
+    decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
+    cmd = ['/tools/libheif-1.7.0/build/bin/heif-convert', '-q', '100', encoded_file, decoded_file]
     my_exec(cmd)
     return encoded_file, decoded_file
 
@@ -239,6 +251,7 @@ def f(param, codec, image, width, height, temp_folder):
     :return:
     """
 
+    subsampling = '420'
     if not isinstance(param, str):
         param = str(param)
 
@@ -250,10 +263,12 @@ def f(param, codec, image, width, height, temp_folder):
     source_image = get_filename_with_temp_folder(temp_folder, ntpath.basename(image))
 
     if codec in ['jpeg']:
-
         encoded_file, decoded_file = jpeg_encode_helper(image, temp_folder, param)
 
-    elif codec == "webp":
+    elif codec in ['jpegxt']:
+        encoded_file, decoded_file = jpegxt_encode_helper(image, temp_folder, param)
+
+    elif codec in ['webp']:
         encoded_file, decoded_file = webp_encod_helper(image, temp_folder, param)
 
     elif codec in ['kakadu']:
@@ -266,10 +281,10 @@ def f(param, codec, image, width, height, temp_folder):
     elif codec in ['flif']:
         encoded_file, decoded_file = flif_encode_helper(image, temp_folder, param)
 
-    elif codec in ['jpegxt']:
-        encoded_file, decoded_file = jpegxt_encode_helper(image, temp_folder, param)
+    elif codec in ['heif']:
+        encoded_file, decoded_file = heif_encode_helper(image, temp_folder, param)
 
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
+    elif codec in ['avif','avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         my_exec(cmd)
 
