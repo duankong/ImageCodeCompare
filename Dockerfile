@@ -99,7 +99,7 @@ RUN mkdir -p /tools && \
     wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
     tar xvf flif.tar.gz && \
     rm -f flif.tar.gz && \
-    cd /tools/FLIF-master  && \
+    cd /tools/FLIF-0.3  && \
     make flif && \
     make install
 
