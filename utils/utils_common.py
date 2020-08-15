@@ -3,6 +3,8 @@ import errno
 import ntpath
 import glob
 
+def get_root_path_cmd():
+    pass
 
 def mkdir_p(path):
     """ mkdir -p
@@ -66,6 +68,37 @@ def float_to_int(param):
     """help to convert param to int
     """
     return str(int(float(param)))
+
+def get_pixel_format_for_metric_computation(subsampling):
+    """ helper to set pixel format from subsampling, assuming full range,
+        for metric computation
+    """
+    pixel_format = None
+    if subsampling == '420':
+        pixel_format = 'yuvj420p'
+    elif subsampling == '444':
+        pixel_format = 'yuvj444p'
+    elif subsampling == '444u':
+        pixel_format = 'yuvj444p'
+    else:
+        raise RuntimeError('Unsupported subsampling ' + subsampling)
+    return pixel_format
+
+
+def get_pixel_format_for_encoding(subsampling):
+    """ helper to set pixel format from subsampling, assuming full range,
+        for converting source to yuv prior to encoding
+    """
+    pixel_format = None
+    if subsampling == '420':
+        pixel_format = 'yuvj420p'
+    elif subsampling == '444':
+        pixel_format = 'yuvj444p'
+    elif subsampling == '444u':
+        pixel_format = 'yuvj420p'
+    else:
+        raise RuntimeError('Unsupported subsampling ' + subsampling)
+    return pixel_format
 
 
 if __name__ == '__main__':
