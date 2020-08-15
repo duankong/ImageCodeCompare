@@ -146,8 +146,9 @@ RUN mkdir -p /tools && \
     make && \
     make install
 
+### OPENJPEG
+RUN echo " ====================  OPENJPEG --- uclouvain/openjpeg  ==================== "
 
-
-
+RUN pacman -Sy openjpeg2 --noconfirm
 
 
