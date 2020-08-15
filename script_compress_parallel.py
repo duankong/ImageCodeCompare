@@ -94,6 +94,20 @@ def run_program(*args, **kwargs):
         raise
 
 
+def make_my_tuple(image, width, height, codec, metric, target, subsampling, uuid=None):
+    """ make unique tuple for unique directory, primary key in DB, etc.
+    """
+    my_tuple = '{image}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
+        .format(image=ntpath.basename(image), width=width, height=height, codec=codec,
+                metric=metric, target=target, subsampling=subsampling)
+    if uuid is not None:
+        my_tuple = my_tuple + uuid
+    if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
+        LOGGER.error("ERROR : Tuple too long : " + my_tuple)
+    assert len(my_tuple) < 256
+    return my_tuple
+
+
 def get_dimensions(image):
     """ given a source image, return dimensions and bit-depth
     """
@@ -109,6 +123,70 @@ def my_exec(cmd):
     """ helper to choose method for running commands
     """
     return run_program(cmd)
+
+
+def compute_vmaf(ref_image, dist_image, width, height, temp_folder, subsampling):
+    """ given a pair of reference and distorted images:
+        use the ffmpeg libvmaf filter to compute vmaf, vif, ssim, and ms_ssim.
+    """
+
+    pixel_format = get_pixel_format_for_metric_computation(subsampling)
+
+    log_path = get_filename_with_temp_folder(temp_folder, 'stats_vmaf.json')
+    cmd = ['ffmpeg', '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', dist_image,
+           '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', ref_image,
+           '-lavfi', 'libvmaf=psnr=true:ssim=true:ms_ssim=true:log_fmt=json:log_path=' + log_path,
+           '-f', 'null', '-'
+           ]
+
+    run_program(cmd)
+
+    vmaf_log = json.load(open(log_path))
+
+    vmaf_dict = dict()
+    vmaf_dict["vmaf"] = vmaf_log["frames"][0]["metrics"]["vmaf"]
+    vmaf_dict["vif"] = vmaf_log["frames"][0]["metrics"]["vif_scale0"]
+    vmaf_dict["ssim"] = vmaf_log["frames"][0]["metrics"]["ssim"]
+    vmaf_dict["ms_ssim"] = vmaf_log["frames"][0]["metrics"]["ms_ssim"]
+    vmaf_dict["adm2"] = vmaf_log["frames"][0]["metrics"]["adm2"]
+    return vmaf_dict
+
+
+def compute_psnr(ref_image, dist_image, width, height, temp_folder, subsampling):
+    """ given a pair of reference and distorted images:
+        use the ffmpeg psnr filter to compute psnr and mse for each channel.
+    """
+
+    pixel_format = get_pixel_format_for_metric_computation(subsampling)
+
+    log_path = get_filename_with_temp_folder(temp_folder, 'stats_psnr.log')
+    cmd = ['ffmpeg', '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', dist_image,
+           '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', ref_image,
+           '-lavfi', 'psnr=stats_file=' + log_path,
+           '-f', 'null', '-'
+           ]
+
+    run_program(cmd)
+
+    psnr_dict = dict()
+    psnr_log = open(log_path).read()
+    for stat in psnr_log.rstrip().split(" "):
+        key, value = stat.split(":")
+        if key != "n":
+            psnr_dict[key] = float(value)
+    return psnr_dict
+
+
+def compute_metrics(ref_image, dist_image, width, height, temp_folder, subsampling):
+    """ given a pair of reference and distorted images:
+        call vmaf and psnr functions, return results in a dict.
+    """
+
+    vmaf = compute_vmaf(ref_image, dist_image, width, height, temp_folder, subsampling)
+    psnr = compute_psnr(ref_image, dist_image, width, height, temp_folder, subsampling)
+    stats = vmaf.copy()
+    stats.update(psnr)
+    return stats
 
 
 def convert_format(image, temp_folder, fileneme):
@@ -143,74 +221,37 @@ def jpegxt_encode_helper(image, temp_folder, param):
     return encoded_file, encoded_file
 
 
-def kakadu_encode_helper(image, temp_folder, param):
-    # convert
-    image_convert = convert_format(image, temp_folder, "source.pgm")
-    # kakadu encode
-    param = str(param)
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
-    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i',
-           image_convert, '-o', ntpath.basename(encoded_file), '-rate', param]
-    run_program(cmd, cwd=temp_folder)
-    # kakadu decode
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'kakadu_decoded.bmp')
-    remove_exist_file(temp_folder, 'kakadu_decoded*.bmp', LOGGER)
-    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
-           '-o', decoded_file]
-    my_exec(cmd)
-    assert len(glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp'))) == 1
-    return encoded_file, decoded_file
+# def kakadu_encode_helper_dk(image, temp_folder, param):
+#     # convert
+#     image_convert = convert_format(image, temp_folder, "source.pgm")
+#     # kakadu encode
+#     param = str(param)
+#     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
+#     cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i',
+#            image_convert, '-o', ntpath.basename(encoded_file), '-rate', param]
+#     run_program(cmd, cwd=temp_folder)
+#     # kakadu decode
+#     decoded_file = get_filename_with_temp_folder(temp_folder, 'kakadu_decoded.bmp')
+#     remove_exist_file(temp_folder, 'kakadu_decoded*.bmp', LOGGER)
+#     cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
+#            '-o', decoded_file]
+#     my_exec(cmd)
+#     assert len(glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp'))) == 1
+#     return encoded_file, decoded_file
 
 
-def jpeg_encode_helper(image, temp_folder, param):
-    # convert
-    source_image_convert = convert_format(image, temp_folder, "source.pgm")
-    # jpeg encode
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-    cmd = ['/tools/jpeg-9d/cjpeg', '-quality', float_to_int(param), '-outfile', encoded_file, source_image_convert]
-    my_exec(cmd)
-    # jpeg decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'jpeg_decode.bmp')
-    cmd = ['/tools/jpeg-9d/djpeg', '-dct int', '-bmp', '-outfile', decoded_file, encoded_file]
-    my_exec(cmd)
-    return encoded_file, decoded_file
-
-
-def webp_encod_helper(image, temp_folder, param):
-    # webp encode
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
-    cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/cwebp', '-noalpha', '-print_ssim', '-m', '6', '-q', str(param), image,
-           '-o', encoded_file]
-    my_exec(cmd)
-    # webp decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'webp_decode.pgm')
-    cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/dwebp', '-quiet', encoded_file, '-o', decoded_file]
-    my_exec(cmd)
-
-    # convert
-    source_image_convert = get_filename_with_temp_folder(temp_folder, 'webp_decode_convert.png')
-    # cmd = ['convert', decoded_file, source_image_convert]
-    cmd = ['convert', decoded_file, '-colorspace RGB', '-colorspace Gray', source_image_convert]
-    my_exec(cmd)
-    return encoded_file, source_image_convert
-
-
-def bpg_encode_helper(image, temp_folder, param):
-    # bpg encode
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
-    cmd = ['/tools/libbpg-master/bpgenc', '-b', '8', '-m', '9', '-q', str(param), '-o', encoded_file, image]
-    my_exec(cmd)
-    # bpg decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.png')
-    cmd = ['/tools/libbpg-master/bpgdec', '-b', '8', '-o', decoded_file, encoded_file]
-    my_exec(cmd)
-
-    # convert
-    source_image_convert = get_filename_with_temp_folder(temp_folder, 'bpg_decode_convert.png')
-    # cmd = ['convert', decoded_file, source_image_convert]
-    cmd = ['convert', decoded_file, '-colorspace RGB', '-colorspace Gray', source_image_convert]
-    my_exec(cmd)
-    return encoded_file, source_image_convert
+# def jpeg_encode_helper(image, temp_folder, param):
+#     # convert
+#     source_image_convert = convert_format(image, temp_folder, "source.pgm")
+#     # jpeg encode
+#     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
+#     cmd = ['/tools/jpeg-9d/cjpeg', '-quality', float_to_int(param), '-outfile', encoded_file, source_image_convert]
+#     my_exec(cmd)
+#     # jpeg decoder
+#     decoded_file = get_filename_with_temp_folder(temp_folder, 'jpeg_decode.bmp')
+#     cmd = ['/tools/jpeg-9d/djpeg', '-dct int', '-bmp', '-outfile', decoded_file, encoded_file]
+#     my_exec(cmd)
+#     return encoded_file, decoded_file
 
 
 def flif_encode_helper(image, temp_folder, param):
@@ -237,7 +278,76 @@ def heif_encode_helper(image, temp_folder, param):
     return encoded_file, decoded_file
 
 
-def f(param, codec, image, width, height, temp_folder):
+def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
+    suffix = '.420_to_444.yuv'
+    source_yuv = source_yuv_420 + suffix
+    decoded_yuv = decoded_yuv_420 + suffix
+
+    # 444 source yuv is directly made from input source image
+    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), source_yuv]
+    my_exec(cmd)
+
+    # 444 decoded yuv is made from previously decoded 420 yuv
+    convert_420_to_444(decoded_yuv_420, decoded_yuv, width, height, subsampling)
+
+    return source_yuv, decoded_yuv
+
+
+def convert_420_to_444(input_420, output_444, width, height, subsampling):
+    assert subsampling == '444u'
+    cmd = ['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_encoding(subsampling),
+           '-s:v', '%s,%s' % (width, height), '-i', input_420,
+           '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), output_444]
+    my_exec(cmd)
+
+
+def kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param, codec):
+    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+    my_exec(cmd)
+
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
+    # kakadu derives width, height, sub-sampling from file name so avoid confusion with folder name
+    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_v_compress', '-quiet', '-i',
+           ntpath.basename(source_yuv),
+           '-o', ntpath.basename(encoded_file), '-precise', '-rate', param, '-tolerance', '0']
+    if codec == 'kakadu-mse':
+        cmd[-2:-2] = ['-no_weights']
+    run_program(cmd, cwd=temp_folder)
+
+    decoded_yuv = get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded.yuv')
+    for filePath in glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded*.yuv')):
+        try:
+            os.remove(filePath)
+        except:
+            LOGGER.error("Error while deleting file : " + filePath)
+
+    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_v_expand', '-quiet', '-i', encoded_file,
+           '-o', decoded_yuv]
+    my_exec(cmd)
+
+    decoded_yuv_files = glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded*.yuv'))
+    assert len(decoded_yuv_files) == 1
+    decoded_yuv = decoded_yuv_files[0]
+
+    return encoded_file, decoded_yuv, source_yuv
+
+
+def jpeg_encode_helper(codec, cmd, encoded_file, temp_folder):
+    if codec == 'jpeg-mse':
+        cmd[1:1] = ['-qt', '1']
+    elif codec == 'jpeg-ms-ssim':
+        cmd[1:1] = ['-qt', '2']
+    elif codec == 'jpeg-im':
+        cmd[1:1] = ['-qt', '3']
+    elif codec == 'jpeg-hvs-psnr':
+        cmd[1:1] = ['-qt', '4']
+    my_exec(cmd)
+
+    cmd = ['/tools/jpeg/jpeg', encoded_file, get_filename_with_temp_folder(temp_folder, 'decoded.ppm')]
+    my_exec(cmd)
+
+
+def f(param, codec, image, width, height, temp_folder, subsampling):
     """
     Method to run an encode with given codec, subsampling, etc. and requested codec parameter like QP or bpp.
     All the commands for encoding, decoding, computing metric, etc. for any given codec should be visible
@@ -248,43 +358,172 @@ def f(param, codec, image, width, height, temp_folder):
     :param width: width of source image and target encode
     :param height: height of source image and target encode
     :param temp_folder: directory for intermediate files, encodes, stats files, etc.
+    :param subsampling: color subsampling
     :return:
     """
-
-    subsampling = '420'
-    if not isinstance(param, str):
-        param = str(param)
-
+    param = str(param)
     LOGGER.debug("Encoding image " + image + " with codec " + codec + " for param " + param)
 
-    cmd = ['cp', image, temp_folder]
-    my_exec(cmd)
+    encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
+    source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
+    decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
 
-    source_image = get_filename_with_temp_folder(temp_folder, ntpath.basename(image))
+    if codec in ['jpeg', 'jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr'] and subsampling in ['420', '444u']:
+        cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
+        my_exec(cmd)
 
-    if codec in ['jpeg']:
-        encoded_file, decoded_file = jpeg_encode_helper(image, temp_folder, param)
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
+        cmd = ['/tools/jpeg/jpeg', '-q', float_to_int(param), '-s', '1x1,2x2,2x2',
+               get_filename_with_temp_folder(temp_folder, 'source.ppm'),
+               encoded_file]
+        jpeg_encode_helper(codec, cmd, encoded_file, temp_folder)
 
-    elif codec in ['jpegxt']:
-        encoded_file, decoded_file = jpegxt_encode_helper(image, temp_folder, param)
+        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'source.ppm'), '-interlace', 'plane',
+               '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
+        my_exec(cmd)
 
-    elif codec in ['webp']:
-        encoded_file, decoded_file = webp_encod_helper(image, temp_folder, param)
+        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'decoded.ppm'), '-interlace', 'plane',
+               '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        my_exec(cmd)
 
-    elif codec in ['kakadu']:
+    elif codec in ['jpeg', 'jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr'] and subsampling == '444':
+        cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
+        my_exec(cmd)
 
-        encoded_file, decoded_file = kakadu_encode_helper(image, temp_folder, param)
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
+        cmd = ['/tools/jpeg/jpeg', '-q', float_to_int(param), '-s', '1x1,1x1,1x1',
+               get_filename_with_temp_folder(temp_folder, 'source.ppm'),
+               encoded_file]
+        jpeg_encode_helper(codec, cmd, encoded_file, temp_folder)
 
-    elif codec in ['bpg']:
-        encoded_file, decoded_file = bpg_encode_helper(image, temp_folder, param)
+        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'source.ppm'), '-interlace', 'plane',
+               '-sampling-factor',
+               '4:4:4', source_yuv]
+        my_exec(cmd)
 
-    elif codec in ['flif']:
-        encoded_file, decoded_file = flif_encode_helper(image, temp_folder, param)
+        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'decoded.ppm'), '-interlace', 'plane',
+               '-sampling-factor',
+               '4:4:4', decoded_yuv]
+        my_exec(cmd)
 
-    elif codec in ['heif']:
-        encoded_file, decoded_file = heif_encode_helper(image, temp_folder, param)
+    elif codec == "webp" and subsampling in ['420', '444u']:
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
 
-    elif codec in ['avif','avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
+        cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/cwebp', '-m', '6', '-q', param, '-s', str(width), str(height),
+               '-quiet', source_yuv, '-o', encoded_file]
+        my_exec(cmd)
+
+        cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/dwebp', encoded_file, '-yuv', '-quiet', '-o', decoded_yuv]
+        my_exec(cmd)
+
+        if subsampling == '444u':
+            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
+                                                                            height, subsampling)
+
+    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420', '444u']:
+        source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '420'))
+
+        encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param,
+                                                                     codec)
+        if subsampling == '444u':
+            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
+                                                                            height, subsampling)
+
+    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling == '444':
+
+        use_ppm_source = False
+
+        if use_ppm_source:
+            source_ppm = get_filename_with_temp_folder(temp_folder, 'source.ppm')
+            decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
+
+            cmd = ['convert', image, source_ppm]
+            my_exec(cmd)
+
+            encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
+            cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i', source_ppm,
+                   '-o', encoded_file, '-rate', param, '"Ssampling={1,1}"', '-precise', '-tolerance', '0']
+            if codec == 'kakadu-mse':
+                cmd[-4:-4] = ['-no_weights']
+            my_exec(cmd)  # not sure whether yuv444 is being coded in the codestream
+
+            cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
+                   '-o', decoded_ppm]
+            my_exec(cmd)
+
+            cmd = ['convert', source_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+            my_exec(cmd)
+
+            cmd = ['convert', decoded_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
+            my_exec(cmd)
+        else:
+            source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '444'))
+
+            encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv,
+                                                                         param, codec)
+
+    elif codec == 'openjpeg' and subsampling in ['420', '444u']:
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
+        source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
+
+        # cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:2:0', source_yuv]
+        # my_exec(cmd)
+
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+
+        cmd = ['cp', source_yuv, source_raw]
+        my_exec(cmd)
+
+        # param is PSNR value [dB]
+        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:2x2:2x2' % (width, height, 3, 8), '-q', param,
+               '-o', encoded_file]
+        my_exec(cmd)
+
+        cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
+        my_exec(cmd)
+
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        my_exec(cmd)
+
+        if subsampling == '444u':
+            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
+                   source_yuv]
+            my_exec(cmd)
+
+    elif codec == 'openjpeg' and subsampling == '444':
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.raw')
+        source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
+
+        # cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+        # my_exec(cmd)
+
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+
+        cmd = ['cp', source_yuv, source_raw]
+        my_exec(cmd)
+
+        # param is PSNR value [dB]
+        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:1x1:1x1' % (width, height, 3, 8), '-q', param,
+               '-o', encoded_file]
+        my_exec(cmd)
+
+        cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
+        my_exec(cmd)
+
+        cmd = ['cp', decoded_file, decoded_yuv]
+        my_exec(cmd)
+
+    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
+        param = float_to_int(param)
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         my_exec(cmd)
 
@@ -306,6 +545,7 @@ def f(param, codec, image, width, height, temp_folder):
                                                                             height, subsampling)
 
     elif codec in ['avif-mse', 'avif-ssim'] and subsampling == '444':
+        param = float_to_int(param)
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         my_exec(cmd)
 
@@ -322,31 +562,53 @@ def f(param, codec, image, width, height, temp_folder):
         cmd = ['aomdec', '--rawvideo', '-o', decoded_yuv, encoded_file]
         my_exec(cmd)
 
+    elif codec in ['bpg'] and subsampling in ['420', '444u']:
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+        # bpg encode
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
+        cmd = ['/tools/libbpg-master/bpgenc', '-f', '420', '-b', '10', '-m', '9', '-q', str(param), '-o', encoded_file,
+               image]
+        my_exec(cmd)
+        # bpg decoder
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.ppm')
+        cmd = ['/tools/libbpg-master/bpgdec', '-b', '10', '-o', decoded_file, encoded_file]
+        my_exec(cmd)
+        # convert
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        my_exec(cmd)
+        if subsampling == '444u':
+            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
+                   source_yuv]
+            my_exec(cmd)
+
+    # elif codec in ['bpg'] and subsampling in ['444']:
+    #     #     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+    #     #     my_exec(cmd)
+    #     #     # bpg encode
+    #     #     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
+    #     #     cmd = ['/tools/libbpg-master/bpgenc', '-f', '444', '-b', '10', '-m', '9', '-q', str(param), '-o',
+    #     #            encoded_file, image]
+    #     #     my_exec(cmd)
+    #     #     # bpg decoder
+    #     #     decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.ppm')
+    #     #     cmd = ['/tools/libbpg-master/bpgdec', '-b', '10', '-o', decoded_file, encoded_file]
+    #     #     my_exec(cmd)
+    #     #     # convert
+    #     #     cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
+    #     #     my_exec(cmd)
+
     else:
-        raise RuntimeError("Unsupported codec : {} ".format(codec))
+        raise RuntimeError('Unsupported codec and subsampling ' + codec + ' / ' + subsampling)
 
-    assert get_dimensions(source_image)[2] == get_dimensions(decoded_file)[2]
-
-    stats = compute_metrics(source_image, decoded_file, temp_folder)
+    stats = compute_metrics(source_yuv, decoded_yuv, width, height, temp_folder, subsampling)
     stats['file_size_bytes'] = os.path.getsize(encoded_file)
+
     return stats, encoded_file
 
 
-def make_my_tuple(image, width, height, codec, metric, target, uuid=None):
-    """ make unique tuple for unique directory, primary key in DB, etc.
-    """
-    my_tuple = '{image}_{width}x{height}_{codec}_{metric}_{target}_' \
-        .format(image=ntpath.basename(image), width=width, height=height, codec=codec,
-                metric=metric, target=target)
-    if uuid is not None:
-        my_tuple = my_tuple + uuid
-    if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
-        LOGGER.error("ERROR : Tuple too long : " + my_tuple)
-    assert len(my_tuple) < 256
-    return my_tuple
-
-
-def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height):
+def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling):
     """ Perform encode with given codec, subsampling, etc. with the goal of hitting given target quality as
     closely as possible. Employs binary search.
     :param inverse: boolean True means QP, else quality factor
@@ -364,20 +626,22 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     :return:
     """
     temp_uuid = str(uuid.uuid4())
-    temp_folder = WORK_DIR + make_my_tuple(image, width, height, codec, metric, target, temp_uuid)
-    tuple_minus_uuid = make_my_tuple(image, width, height, codec, metric, target)
+    temp_folder = WORK_DIR + make_my_tuple(image, width, height, codec, metric, target, subsampling, uuid=temp_uuid)
+    tuple_minus_uuid = make_my_tuple(image, width, height, codec, metric, target, subsampling)
     mkdir_p(temp_folder)
+
     LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
-                       inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height)))
+                       inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling)))
 
     c = (a + b) / 2
     last_c = c
     while (b - a) > ab_tol:
-        quality, encoded_file = f(c, codec, image, width, height, temp_folder)
+
+        quality, encoded_file = f(c, codec, image, width, height, temp_folder, subsampling)
         last_c = c
 
         if abs(quality[metric] - target) < target_tol:
-            return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file),
+            return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
                     tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
         else:
             if inverse:
@@ -392,51 +656,33 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
                     b = c
             c = (a + b) / 2
 
-    return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file),
+    return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
             tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
 
 
-def update_stats(results, verbose=0):
+def update_stats(results):
     """ callback function called when a worker process finishes an encoding job with target quality value
     """
-    c, codec, metric, target, quality, encoded_file, file_size_bytes, \
+    c, codec, metric, target, quality, encoded_file, file_size_bytes, subsampling, \
     tuple_minus_uuid, source_image, width, height, temp_folder = results
-
-    # (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file),
-    #  tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
-
     LOGGER.info('<<' + codec.upper() + '>>' + " Param " + str(c) + ", quality "
                 + repr(quality) + ", encoded_file: " + encoded_file
                 + " size: " + str(file_size_bytes) + " bytes")
-    TOTAL_BYTES[codec + metric + str(target)] += os.path.getsize(encoded_file)
-    TOTAL_METRIC[codec + metric + str(target)] += quality[metric]
-
-    if verbose > 0:
-        print("[-------show-------]")
-        print(
-            "tuple_minus_uuid={} source_image={} width={} height={} \n"
-            " codec={} c={} temp_folder={} \n metric={}  target={}  quality['ssim']={} "
-            " quality['mse']={} quality['psnr']={} file_size_bytes={} encoded_file={}".format(tuple_minus_uuid,
-                                                                                              source_image, width,
-                                                                                              height, codec,
-                                                                                              c, temp_folder,
-                                                                                              metric, target,
-                                                                                              quality['ssim'],
-                                                                                              quality['mse'],
-                                                                                              quality['psnr'],
-                                                                                              file_size_bytes,
-                                                                                              encoded_file))
-
+    TOTAL_BYTES[codec + subsampling + metric + str(target)] += os.path.getsize(encoded_file)
+    TOTAL_METRIC[codec + subsampling + metric + str(target)] += quality[metric]
     try:
-        CONNECTION.execute(get_insert_command(), (tuple_minus_uuid, source_image, width, height, codec,
-                                                  c, temp_folder, metric, target,
-                                                  quality['ssim'], quality['mse'], quality['psnr'],
-                                                  file_size_bytes, encoded_file))
+        CONNECTION.execute(get_insert_command(), (tuple_minus_uuid, source_image, width, height,
+                                                  codec, c, temp_folder, metric, target,
+                                                  quality['vmaf'], quality['ssim'], quality['ms_ssim'], quality['vif'],
+                                                  quality['mse_y'], quality['mse_u'], quality['mse_v'],
+                                                  quality['mse_avg'],
+                                                  quality['psnr_y'], quality['psnr_u'], quality['psnr_v'],
+                                                  quality['psnr_avg'], quality['adm2'],
+                                                  subsampling, file_size_bytes, encoded_file))
         CONNECTION.commit()
     except:
         print("[=============]ERROR")
         CONNECTION.rollback()
-
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
@@ -463,13 +709,13 @@ def create_table_if_needed(connection, only_perform_missing_encodes):
             LOGGER.info('Will add missing entries to table')
         else:
             LOGGER.error('only_perform_missing_encodes is True but table does not exist')
-            sys.exit(1)
+            exit(1)
     else:
         if connection.execute(
                 ''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='ENCODES' ''').fetchall()[0][
             0] == 1:
             LOGGER.error('Table already exists. Exiting . . . ')
-            sys.exit(1)
+            exit(1)
         connection.execute(get_create_table_command())
 
 
@@ -477,7 +723,7 @@ def does_entry_exist(connection, primary_key):
     res = connection.execute("SELECT * FROM ENCODES WHERE ID='{}'".format(primary_key)).fetchall()
     if len(res) > 1:
         LOGGER.error('Found more than one entry with given primary key')
-        sys.exit(1)
+        exit(1)
     elif len(res) == 1:
         return True
     else:
@@ -490,14 +736,15 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
     setup_logging(worker=False, worker_id=multiprocessing.current_process().ident)
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),
-        multiprocessing.current_process().ident, threading.current_thread().ident)
+        multiprocessing.current_process().ident,
+        threading.current_thread().ident)
 
     if only_perform_missing_encodes:
         if os.path.isfile(db_file_name):
             LOGGER.info("Will add missing entries to file " + db_file_name)
         else:
             LOGGER.error("only_perform_missing_encodes is True but db file " + db_file_name + " does not exist.")
-            sys.exit(1)
+            exit(1)
 
     global CONNECTION
     CONNECTION = sqlite3.connect(db_file_name, check_same_thread=False)
@@ -507,7 +754,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
     images = set(listdir_full_path('/code/images'))
     if len(images) <= 0:
         LOGGER.error(" no source files in ./images.")
-        sys.exit(1)
+        exit(1)
 
     results = list()
 
@@ -516,30 +763,31 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
             width, height, depth = get_dimensions(image)
             LOGGER.info(
                 "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
+
             for codec in TUPLE_CODECS:
                 LOGGER.debug(" ")
                 skip_encode = False
                 if only_perform_missing_encodes:
-                    unique_id = make_my_tuple(image, width, height, codec.name, metric, target)
+                    unique_id = make_my_tuple(image, width, height, codec.name, metric, target, codec.subsampling)
                     skip_encode = does_entry_exist(CONNECTION, unique_id)
 
                 if not skip_encode:
                     results.append(
-                        (pool.apply_async(func=bisection,
+                        (pool.apply_async(bisection,
                                           args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
-                                                metric, target, target_tol, codec.name, image, width, height),
-                                          callback=update_stats,
-                                          error_callback=error_function
-                                          ),
-                         codec.name))
+                                                metric, target, target_tol, codec.name, image, width, height,
+                                                codec.subsampling),
+                                          callback=update_stats, error_callback=error_function), codec.name,
+                         codec.subsampling))
             LOGGER.info('-----------------------------------------------------------------------------------------')
+
     pool.close()
     pool.join()
 
     # time.sleep(4)
-    if len(results) > 0:
-        LOGGER.debug("\n\n")
-        LOGGER.debug("Will get results from AsyncResult objects and list them now. This ensures callbacks complete.")
+
+    LOGGER.debug('\n\n')
+    LOGGER.debug("Will get results from AsyncResult objects and list them now. This ensures callbacks complete.")
     for result in results:
         try:
             task_result = result[0].get()
@@ -548,43 +796,50 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
             LOGGER.error(repr(e))
             TOTAL_ERRORS[result[1] + result[2]] += 1
 
-    print("\n\n")
+    LOGGER.info("\n\n")
     if not only_perform_missing_encodes:
         LOGGER.info("Total payload in kilo Bytes:")
         for codec in TUPLE_CODECS:
             for target in target_arr:
                 if codec.name + codec.subsampling in TOTAL_ERRORS:
-                    LOGGER.info('  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
-                                                                    TOTAL_BYTES[
-                                                                        codec.name + metric + str(target)] / 1000.0,
-                                                                    TOTAL_ERRORS[codec.name + metric + str(target)]))
+                    LOGGER.info(
+                        '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
+                                                            TOTAL_BYTES[codec.name + codec.subsampling + metric + str(
+                                                                target)] / 1000.0,
+                                                            TOTAL_ERRORS[
+                                                                codec.name + codec.subsampling + metric + str(target)]))
                 else:
-                    LOGGER.info('  {}: {}'.format(codec.name + metric + str(target),
-                                                  TOTAL_BYTES[codec.name + metric + str(target)] / 1000.0))
+                    LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
+                                                  TOTAL_BYTES[
+                                                      codec.name + codec.subsampling + metric + str(target)] / 1000.0))
 
         LOGGER.info("Average metric value:")
         for codec in TUPLE_CODECS:
             for target in target_arr:
                 if codec.name + codec.subsampling in TOTAL_ERRORS:
                     LOGGER.info(
-                        '  {}: {} (Total errors {})'.format(codec.name + metric + str(target),
-                                                            TOTAL_METRIC[codec.name + metric + str(target)]
+                        '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
+                                                            TOTAL_METRIC[
+                                                                codec.name + codec.subsampling + metric + str(target)]
                                                             / float(len(images)),
-                                                            TOTAL_ERRORS[codec.name + metric + str(target)]))
+                                                            TOTAL_ERRORS[
+                                                                codec.name + codec.subsampling + metric + str(target)]))
                 else:
-                    LOGGER.info('  {}: {}'.format(codec.name + metric + str(target),
-                                                  TOTAL_METRIC[codec.name + metric + str(target)] / float(len(images))))
-    #
-    # CONNECTION.close()
+                    LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
+                                                  TOTAL_METRIC[
+                                                      codec.name + codec.subsampling + metric + str(target)] / float(
+                                                      len(images))))
+
+    CONNECTION.close()
     LOGGER.info("\n\n")
     LOGGER.info("[*] --------------------------- Done --------------------------- [*]")
-    sys.exit(0)
+    # sys.exit(0)
 
 
 if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
-    main(metric='ssim', target_arr=[0.9, 0.99], target_tol=0.002, db_file_name='encoding_results_ssim.db',
+    main(metric='psnr_avg', target_arr=[31], target_tol=0.05, db_file_name='encoding_results_psnr.db',
          only_perform_missing_encodes=False)
 
     # main(metric='psnr', target_arr=[25, 30, 35, 40], target_tol=0.5, db_file_name='encoding_results_psnr.db')
