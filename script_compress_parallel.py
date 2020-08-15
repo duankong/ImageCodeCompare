@@ -97,8 +97,11 @@ def run_program(*args, **kwargs):
 def make_my_tuple(image, width, height, codec, metric, target, subsampling, uuid=None):
     """ make unique tuple for unique directory, primary key in DB, etc.
     """
-    my_tuple = '{image}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
-        .format(image=ntpath.basename(image), width=width, height=height, codec=codec,
+    (filepath, tempfilename) = os.path.split(image)
+    filename, extension = os.path.splitext(tempfilename)
+    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
+        .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
+                codec=codec,
                 metric=metric, target=target, subsampling=subsampling)
     if uuid is not None:
         my_tuple = my_tuple + uuid
@@ -133,11 +136,10 @@ def compute_vmaf(ref_image, dist_image, width, height, temp_folder, subsampling)
     pixel_format = get_pixel_format_for_metric_computation(subsampling)
 
     log_path = get_filename_with_temp_folder(temp_folder, 'stats_vmaf.json')
+
     cmd = ['ffmpeg', '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', dist_image,
            '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', ref_image,
-           '-lavfi', 'libvmaf=psnr=true:ssim=true:ms_ssim=true:log_fmt=json:log_path=' + log_path,
-           '-f', 'null', '-'
-           ]
+           '-lavfi', 'libvmaf=psnr=true:ssim=true:ms_ssim=true:log_fmt=json:log_path=' + log_path, '-f', 'null', '-']
 
     run_program(cmd)
 
@@ -252,30 +254,6 @@ def jpegxt_encode_helper(image, temp_folder, param):
 #     cmd = ['/tools/jpeg-9d/djpeg', '-dct int', '-bmp', '-outfile', decoded_file, encoded_file]
 #     my_exec(cmd)
 #     return encoded_file, decoded_file
-
-
-def flif_encode_helper(image, temp_folder, param):
-    # bpg encode
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
-    cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-Q', str(param), image, '-o', encoded_file]
-    my_exec(cmd)
-    # bpg decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
-    cmd = ['/tools/FLIF-0.3/src/flif', '-d', encoded_file, '-o', decoded_file]
-    my_exec(cmd)
-    return encoded_file, decoded_file
-
-
-def heif_encode_helper(image, temp_folder, param):
-    # bpg encode
-    encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
-    cmd = ['/tools/libheif-1.7.0/build/bin/heif-enc', '-q', str(param), image, '-o', encoded_file]
-    my_exec(cmd)
-    # bpg decoder
-    decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
-    cmd = ['/tools/libheif-1.7.0/build/bin/heif-convert', '-q', '100', encoded_file, decoded_file]
-    my_exec(cmd)
-    return encoded_file, decoded_file
 
 
 def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
@@ -408,16 +386,23 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
                '4:4:4', decoded_yuv]
         my_exec(cmd)
 
+
     elif codec == "webp" and subsampling in ['420', '444u']:
+
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+
         my_exec(cmd)
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
+
         cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/cwebp', '-m', '6', '-q', param, '-s', str(width), str(height),
+
                '-quiet', source_yuv, '-o', encoded_file]
+
         my_exec(cmd)
 
         cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/dwebp', encoded_file, '-yuv', '-quiet', '-o', decoded_yuv]
+
         my_exec(cmd)
 
         if subsampling == '444u':
@@ -598,6 +583,66 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
     #     #     # convert
     #     #     cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
     #     #     my_exec(cmd)
+
+    elif codec in ['flif'] and subsampling in ['420', '444u']:
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
+        # flif encode
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
+        cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-J', '-o', '-E', '100', '-Q', str(param), image, encoded_file]
+        my_exec(cmd)
+        # flif decoder
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
+        cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
+        my_exec(cmd)
+        # convert
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        my_exec(cmd)
+        if subsampling == '444u':
+            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
+                   source_yuv]
+            my_exec(cmd)
+
+    elif codec in ['flif'] and subsampling in ['444']:
+        # flif encode
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
+        cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-o', '-E', '100', '-Q', str(param), image, encoded_file]
+        my_exec(cmd)
+        # flif decoder
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
+        cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
+        my_exec(cmd)
+        # convert
+        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+        my_exec(cmd)
+
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
+        my_exec(cmd)
+
+    elif codec in ['heif'] and subsampling in ['444']:
+        jpgfile = get_filename_with_temp_folder(temp_folder, 'jpgfile.jpg')
+        if image[:-4] != '.jpg' or 'jpeg':
+            cmd = ['convert', image, jpgfile]
+            my_exec(cmd)
+            image = jpgfile
+
+        # cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        # my_exec(cmd)
+        # heif encode
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
+        cmd = ['/tools/libheif-1.7.0/build/bin/heif-enc', '-q', str(param), image, '-o', encoded_file]
+        my_exec(cmd)
+        # heif decoder
+        decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
+        cmd = ['/tools/libheif-1.7.0/build/bin/heif-convert', '-q', '100', encoded_file, decoded_file]
+        my_exec(cmd)
+        # convert
+        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+        my_exec(cmd)
+
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
+        my_exec(cmd)
 
     else:
         raise RuntimeError('Unsupported codec and subsampling ' + codec + ' / ' + subsampling)
@@ -839,7 +884,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
 if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
-    main(metric='psnr_avg', target_arr=[31], target_tol=0.05, db_file_name='encoding_results_psnr.db',
+    main(metric='psnr_avg', target_arr=[25,30], target_tol=0.05, db_file_name='encoding_results_psnr.db',
          only_perform_missing_encodes=False)
 
     # main(metric='psnr', target_arr=[25, 30, 35, 40], target_tol=0.5, db_file_name='encoding_results_psnr.db')
