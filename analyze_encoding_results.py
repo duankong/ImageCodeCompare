@@ -6,6 +6,8 @@ import ntpath
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
+from utils import *
+
 __author__ = "Aditya Mavlankar"
 __copyright__ = "Copyright 2019-2020, Netflix, Inc."
 __credits__ = ["Kyle Swanson", "Jan de Cock", "Marjan Parsa"]
@@ -52,15 +54,7 @@ def get_print_string(codec, sub_sampling, count, metric_value, file_size, metric
     return line
 
 
-def apply_size_check(connection):
-    width_height_pairs = connection.execute('SELECT DISTINCT WIDTH,HEIGHT FROM ENCODES').fetchall()
-    total_pixels = width_height_pairs[0][0] * width_height_pairs[0][1]
-    for pair in width_height_pairs:
-        if pair[0] * pair[1] != total_pixels:
-            print('Images with different number of pixels detected in the database.')
-            print('Cannot aggregate results for images with different number of pixels.')
-            sys.exit(1)
-    return total_pixels
+
 
 
 def apply_checks_before_analyzing(connection, metric_name):

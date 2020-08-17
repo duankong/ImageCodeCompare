@@ -33,15 +33,6 @@ from skimage import io, measure
 
 from utils import *
 
-__author__ = "Aditya Mavlankar"
-__copyright__ = "Copyright 2019-2020, Netflix, Inc."
-__credits__ = ["Kyle Swanson", "Jan de Cock", "Marjan Parsa"]
-__license__ = "Apache License, Version 2.0"
-__version__ = "0.1"
-__maintainer__ = "Aditya Mavlankar"
-__email__ = "amavlankar@netflix.com"
-__status__ = "Development"
-
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
@@ -222,38 +213,6 @@ def jpegxt_encode_helper(image, temp_folder, param):
     my_exec(cmd)
     return encoded_file, encoded_file
 
-
-# def kakadu_encode_helper_dk(image, temp_folder, param):
-#     # convert
-#     image_convert = convert_format(image, temp_folder, "source.pgm")
-#     # kakadu encode
-#     param = str(param)
-#     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
-#     cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i',
-#            image_convert, '-o', ntpath.basename(encoded_file), '-rate', param]
-#     run_program(cmd, cwd=temp_folder)
-#     # kakadu decode
-#     decoded_file = get_filename_with_temp_folder(temp_folder, 'kakadu_decoded.bmp')
-#     remove_exist_file(temp_folder, 'kakadu_decoded*.bmp', LOGGER)
-#     cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
-#            '-o', decoded_file]
-#     my_exec(cmd)
-#     assert len(glob.glob(get_filename_with_temp_folder(temp_folder, 'kakadu_decoded*.bmp'))) == 1
-#     return encoded_file, decoded_file
-
-
-# def jpeg_encode_helper(image, temp_folder, param):
-#     # convert
-#     source_image_convert = convert_format(image, temp_folder, "source.pgm")
-#     # jpeg encode
-#     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-#     cmd = ['/tools/jpeg-9d/cjpeg', '-quality', float_to_int(param), '-outfile', encoded_file, source_image_convert]
-#     my_exec(cmd)
-#     # jpeg decoder
-#     decoded_file = get_filename_with_temp_folder(temp_folder, 'jpeg_decode.bmp')
-#     cmd = ['/tools/jpeg-9d/djpeg', '-dct int', '-bmp', '-outfile', decoded_file, encoded_file]
-#     my_exec(cmd)
-#     return encoded_file, decoded_file
 
 
 def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
@@ -884,7 +843,7 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
 if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
-    main(metric='psnr_avg', target_arr=[25,30], target_tol=0.05, db_file_name='encoding_results_psnr.db',
+    main(metric='ssim', target_arr=[0.9,0.94,0.93,0.95,0.97,0.99], target_tol=0.01, db_file_name='encoding_results_psnr.db',
          only_perform_missing_encodes=False)
 
     # main(metric='psnr', target_arr=[25, 30, 35, 40], target_tol=0.5, db_file_name='encoding_results_psnr.db')

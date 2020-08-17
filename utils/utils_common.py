@@ -3,8 +3,7 @@ import errno
 import ntpath
 import glob
 
-def get_root_path_cmd():
-    pass
+
 
 def mkdir_p(path):
     """ mkdir -p

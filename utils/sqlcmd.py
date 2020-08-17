@@ -1,3 +1,52 @@
+import sys
+from collections import namedtuple
+
+RateQualityPoint = namedtuple('RateQualityPoint', ['bpp', 'quality', 'target_metric', 'target_value'])
+
+
+def get_quality_dict(elem, list_of_metrics):
+    quality = dict()
+    for index, metric in enumerate(list_of_metrics):
+        quality[metric] = elem[index]
+    return quality
+
+
+def get_rate_quality_points(connection, sub_sampling, codec, source, total_pixels, list_of_metrics):
+    # print('{} {} {}'.format(codec, sub_sampling, source))
+    csv_metrics_upper = ','.join([elem.upper() for elem in list_of_metrics])
+    points = connection.execute(
+        "SELECT {},FILE_SIZE_BYTES,TARGET_METRIC,TARGET_VALUE FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND SOURCE='{}'"
+            .format(csv_metrics_upper, codec, sub_sampling, source)).fetchall()
+    rate_quality_points = [
+        RateQualityPoint(elem[len(list_of_metrics)] * 8 / total_pixels, get_quality_dict(elem, list_of_metrics),
+                         elem[len(list_of_metrics) + 1], elem[len(list_of_metrics) + 2]) for elem in points]
+    # print(repr(rate_quality_points))
+    return rate_quality_points
+
+
+def get_unique_sources_sorted(connection):
+    unique_sources = connection.execute('SELECT DISTINCT SOURCE FROM ENCODES').fetchall()
+    unique_sources = [elem[0] for elem in unique_sources]
+    return sorted(list(set(unique_sources)))
+
+
+def get_unique_sorted(connection, name):
+    unique_sources = connection.execute('SELECT DISTINCT {} FROM ENCODES'.format(name)).fetchall()
+    unique_sources = [elem[0] for elem in unique_sources]
+    return sorted(list(set(unique_sources)))
+
+
+def apply_size_check(connection):
+    width_height_pairs = connection.execute('SELECT DISTINCT WIDTH,HEIGHT FROM ENCODES').fetchall()
+    total_pixels = width_height_pairs[0][0] * width_height_pairs[0][1]
+    for pair in width_height_pairs:
+        if pair[0] * pair[1] != total_pixels:
+            print('Images with different number of pixels detected in the database.')
+            print('Cannot aggregate results for images with different number of pixels.')
+            sys.exit(1)
+    return total_pixels
+
+
 def get_insert_command():
     """ helper to get DB insert command
     """

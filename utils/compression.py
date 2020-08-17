@@ -10,15 +10,15 @@ def tuple_codes():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
         # # 1
-        # CodecType('jpeg', False, 5, 100, 1, '420'),
+        CodecType('jpeg', False, 5, 100, 1, '420'),
         # CodecType('jpeg', False, 5, 100, 1, '444'),
         # CodecType('jpeg', False, 5, 100, 1, '444u'),
         #
-        # CodecType('jpeg-mse', False, 5, 100, 1, '420'),
+        CodecType('jpeg-mse', False, 5, 100, 1, '420'),
         # CodecType('jpeg-mse', False, 5, 100, 1, '444'),
         # CodecType('jpeg-mse', False, 5, 100, 1, '444u'),
         #
-        # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '420'),
+        CodecType('jpeg-ms-ssim', False, 5, 100, 1, '420'),
         # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444'),
         # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444u'),
         # #
