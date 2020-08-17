@@ -152,3 +152,24 @@ RUN echo " ====================  OPENJPEG --- uclouvain/openjpeg  ==============
 RUN pacman -Sy openjpeg2 --noconfirm
 
 
+### VMAF library
+RUN echo " ====================  VMAFlib --- Netflix/vmaf  ==================== "
+
+RUN     buildDeps="meson" && \
+        pacman -Sy --noconfirm ${buildDeps}
+
+RUN     buildPacket="Cython" &&\
+       	pip install ${buildPacket}
+
+RUN DIR=/tmp/vmaf && \
+    mkdir -p ${DIR} && \
+    cd ${DIR} && \
+    wget -O vmaf.zip https://github.com/Netflix/vmaf/archive/v1.5.2.zip && \
+    unzip vmaf.zip && \
+    rm -f vmaf.zip && \
+    cd vmaf-1.5.2 && \
+    make && \
+    make install && \
+    cd python && \
+    python3 setup.py install
+
