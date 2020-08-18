@@ -2,7 +2,35 @@ import os
 import errno
 import ntpath
 import glob
+import logging
+import statistics
 
+def get_metric_value_file_size_bytes(results):
+    metric_values = [elem[0] for elem in results]
+    file_size_values = [elem[1] for elem in results]
+    vmaf_values = [elem[2] for elem in results]
+    return metric_values, file_size_values, vmaf_values
+
+
+def get_mean_metric_value_file_size_bytes(results):
+    metric_values, file_size_values, vmaf_values = get_metric_value_file_size_bytes(results)
+    return statistics.mean(metric_values), statistics.mean(file_size_values), len(metric_values), statistics.mean(
+        vmaf_values)
+
+def easy_logging(file_prefix, db_file_name):
+    formatter = logging.Formatter('%(asctime)s - %(threadName)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger('report.bdrates')
+
+    file_log_handler = logging.FileHandler(file_prefix + "_" + ntpath.basename(db_file_name) + '.txt')
+    file_log_handler.setFormatter(formatter)
+    logger.addHandler(file_log_handler)
+
+    console_log_handler = logging.StreamHandler()
+    console_log_handler.setFormatter(formatter)
+    logger.addHandler(console_log_handler)
+
+    logger.setLevel('DEBUG')
+    return logger
 
 
 def mkdir_p(path):
@@ -67,6 +95,7 @@ def float_to_int(param):
     """help to convert param to int
     """
     return str(int(float(param)))
+
 
 def get_pixel_format_for_metric_computation(subsampling):
     """ helper to set pixel format from subsampling, assuming full range,

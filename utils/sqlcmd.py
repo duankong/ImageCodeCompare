@@ -23,6 +23,9 @@ def get_rate_quality_points(connection, sub_sampling, codec, source, total_pixel
     # print(repr(rate_quality_points))
     return rate_quality_points
 
+def query_for_codec(codec, sub_sampling, target_metric, target_value):
+    return "SELECT {},FILE_SIZE_BYTES,VMAF FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
+        .format(target_metric.upper(), codec, sub_sampling, target_metric, target_value)
 
 def get_unique_sources_sorted(connection):
     unique_sources = connection.execute('SELECT DISTINCT SOURCE FROM ENCODES').fetchall()
@@ -46,6 +49,17 @@ def apply_size_check(connection):
             sys.exit(1)
     return total_pixels
 
+def apply_checks_before_analyzing(connection, metric_name):
+    # target_metrics_in_db = connection.execute('SELECT DISTINCT TARGET_METRIC FROM ENCODES').fetchall()
+    target_metrics_in_db = get_unique_sorted(connection,'TARGET_METRIC')
+    if metric_name not in get_unique_sorted(connection,'TARGET_METRIC'):
+        print('Target metric {} not found in database. Target metrics in db {}.'.format(metric_name, repr(target_metrics_in_db)))
+        sys.exit(1)
+    total_pixels = apply_size_check(connection)
+    # all_metric_values = connection.execute('SELECT DISTINCT TARGET_VALUE FROM ENCODES').fetchall()
+    # all_metric_values = [elem[0] for elem in all_metric_values]
+    unique_sorted_metric_values = get_unique_sorted(connection,"TARGET_VALUE")
+    return unique_sorted_metric_values, total_pixels
 
 def get_insert_command():
     """ helper to get DB insert command
