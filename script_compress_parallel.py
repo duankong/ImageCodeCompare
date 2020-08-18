@@ -23,6 +23,7 @@ import glob
 from collections import Counter
 import logging
 from collections import namedtuple
+import time
 import datetime
 import uuid
 import multiprocessing
@@ -32,6 +33,7 @@ import sqlite3
 from skimage import io, measure
 
 from utils import *
+from config import args_config, show_and_recode_args
 
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
@@ -212,7 +214,6 @@ def jpegxt_encode_helper(image, temp_folder, param):
     # jpegxt_encode_helper_exart(codec, cmd, encoded_file, temp_folder)
     my_exec(cmd)
     return encoded_file, encoded_file
-
 
 
 def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
@@ -686,7 +687,7 @@ def update_stats(results):
         CONNECTION.commit()
     except:
         print("[=============]ERROR")
-        CONNECTION.rollback()
+        # CONNECTION.rollback()
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
@@ -700,9 +701,9 @@ def error_function(error):
 def initialize_worker():
     """ method called before a worker process picks up jobs
     """
-    setup_logging(worker=True, worker_id=multiprocessing.current_process().ident)
+    setup_logging(worker=True, worker_id=multiprocessing.current_process().pid)
     LOGGER.info('initialize_worker() called for %s %s', multiprocessing.current_process(),
-                multiprocessing.current_process().ident)
+                multiprocessing.current_process().pid)
 
 
 def create_table_if_needed(connection, only_perform_missing_encodes):
@@ -734,13 +735,20 @@ def does_entry_exist(connection, primary_key):
         return False
 
 
-def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_encodes=False):
+def main():
     """ create a pool of worker processes and submit encoding jobs, collect results and exit
     """
     setup_logging(worker=False, worker_id=multiprocessing.current_process().ident)
+    args = args_config()
+    metric = args.metric
+    target_arr = args.target_arr
+    target_tol = args.target_tol
+    db_file_name = args.db_file_name
+    only_perform_missing_encodes = args.only_perform_missing_encodes
+    show_and_recode_args(LOGGER, args)
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),
-        multiprocessing.current_process().ident,
+        multiprocessing.current_process().pid,
         threading.current_thread().ident)
 
     if only_perform_missing_encodes:
@@ -781,7 +789,9 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
                                           args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
                                                 metric, target, target_tol, codec.name, image, width, height,
                                                 codec.subsampling),
-                                          callback=update_stats, error_callback=error_function), codec.name,
+                                          callback=update_stats,
+                                          error_callback=error_function),
+                         codec.name,
                          codec.subsampling))
             LOGGER.info('-----------------------------------------------------------------------------------------')
 
@@ -837,20 +847,13 @@ def main(metric, target_arr, target_tol, db_file_name, only_perform_missing_enco
     CONNECTION.close()
     LOGGER.info("\n\n")
     LOGGER.info("[*] --------------------------- Done --------------------------- [*]")
-    # sys.exit(0)
+    logging.shutdown()
 
 
 if __name__ == "__main__":
     # if some encodes don't materialize, you can break out with Ctrl+C
     # then comment this out and run below for missing encodes
-    main(metric='ssim', target_arr=[0.9,0.94,0.93,0.95,0.97,0.99], target_tol=0.01, db_file_name='encoding_results_psnr.db',
-         only_perform_missing_encodes=False)
-
-    # main(metric='psnr', target_arr=[25, 30, 35, 40], target_tol=0.5, db_file_name='encoding_results_psnr.db')
-
-    # to perform encodes targeting a certain file size
-    # main(metric='file_size_bytes', target_arr=[4000, 20000, 40000, 80000], target_tol=500, db_file_name='encoding_results_file_size.db')
-
+    main()
     # to run missing encodes
     # main(metric='ssim', target_arr=[0.92, 0.95, 0.97, 0.99], target_tol=0.005, db_file_name='encoding_results_ssim.db', only_perform_missing_encodes=True)
     # main(metric='vmaf', target_arr=[75, 80, 85, 90, 95], target_tol=0.5, db_file_name='encoding_results_vmaf.db', only_perform_missing_encodes=True)
