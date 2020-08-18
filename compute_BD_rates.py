@@ -8,7 +8,7 @@ from collections import defaultdict
 from utils.bd_rate_calculator import BDrateCalculator
 from analyze_encoding_results import apply_size_check
 from utils import *
-
+from config import args_config,show_and_recode_args
 BD_RATE_EXCEPTION_STRING = 'BD_RATE_EXCEPTION'
 
 
@@ -63,36 +63,19 @@ def print_bd_rates(bdrates_various_metrics, codec, unique_sources, black_list_so
     return result
 
 
-def main(argv):
-    db_file_name = 'encoding_results_psnr.db'
-    if len(argv) > 0:
-        db_file_name = argv[0]
+def main():
+
+
+    db_file_name=args_config().db_file_name
+
     connection = sqlite3.connect(db_file_name)
 
-    formatter = logging.Formatter('%(asctime)s - %(threadName)s - %(levelname)s - %(message)s')
-
-    logger = logging.getLogger('report.bdrates')
-    # logger.addHandler(logging.FileHandler('bdrates_' + ntpath.basename(db_file_name) + '.txt'))
-    # logger.addHandler(logging.StreamHandler(formatter))
-
-    file_log_handler = logging.FileHandler('bdrates_' + ntpath.basename(db_file_name) + '.txt')
-    file_log_handler.setFormatter(formatter)
-    logger.addHandler(file_log_handler)
-
-    console_log_handler = logging.StreamHandler()
-    console_log_handler.setFormatter(formatter)
-    logger.addHandler(console_log_handler)
-
-    logger.setLevel('DEBUG')
+    logger = easy_logging(file_prefix="bdrates", db_file_name=db_file_name)
 
     unique_sources = get_unique_sources_sorted(connection)
     total_pixels = apply_size_check(connection)
 
     baseline_codec = 'jpeg'
-    # sub_sampling_arr = ['420', '444']
-
-    # codecs = ['jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr', 'webp', 'kakadu-mse', 'kakadu-visual', 'openjpeg',
-    #           'hevc', 'avif-mse', 'avif-ssim']
     sub_sampling_arr = get_unique_sorted(connection, "SUB_SAMPLING")
     codecs = get_unique_sorted(connection, "CODEC")
 
@@ -169,4 +152,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+   main()
