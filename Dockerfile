@@ -158,7 +158,8 @@ RUN echo " ====================  VMAFlib --- Netflix/vmaf  ==================== 
 RUN     buildDeps="meson" && \
         pacman -Sy --noconfirm ${buildDeps}
 
-RUN     buildPacket="Cython" &&\
+RUN     buildPacket="Cython \
+                     argparse" &&\
        	pip install ${buildPacket}
 
 RUN DIR=/tmp/vmaf && \
