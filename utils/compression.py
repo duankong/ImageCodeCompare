@@ -1,9 +1,10 @@
 import ntpath
-
+import subprocess
+import json
 from skimage import io, metrics
 from collections import namedtuple
 
-from .utils_common import get_filename_with_temp_folder
+# from script_compress_parallel import LOGGER
 
 
 def tuple_codes():
@@ -63,18 +64,19 @@ def tuple_codes():
         # # 7
         # CodecType('heif', False, 0, 100, 0.02, '444'),
 
-
     )
     return TUPLE_CODECS
 
 
-def compute_metrics_skcikit(ref_image, dist_image, temp_folder):
+
+
+
+
+
+def write_log(ref_image_path, dis_image_path, log_path):
     """ given a pair of reference and distorted images:
         call vmaf and psnr functions, return results in a dict.
     """
-    ref_image_path = get_filename_with_temp_folder(temp_folder, ntpath.basename(ref_image))
-    dis_image_path = get_filename_with_temp_folder(temp_folder, ntpath.basename(dist_image))
-    log_path = get_filename_with_temp_folder(temp_folder, 'stats.log')
     source = io.imread(ref_image_path)
     encode = io.imread(dis_image_path)
     mse_value = metrics.mean_squared_error(source, encode)
@@ -96,7 +98,6 @@ def compute_metrics_skcikit(ref_image, dist_image, temp_folder):
         fob.write("[*] PSNR={}\n".format(psnr_value))
         fob.write("[*] SSIM={}\n".format(ssim_value))
     return stats
-
 
 
 if __name__ == '__main__':
