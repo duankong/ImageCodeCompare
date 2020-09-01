@@ -32,19 +32,19 @@ from utils.compression import tuple_codes
 from utils.utils_common import get_filename_with_temp_folder, make_my_tuple, float_to_int, mkdir_p, listdir_full_path, \
     setup_logging, get_pixel_format_for_metric_computation, get_pixel_format_for_encoding
 from utils.sqlcmd import get_create_table_command, get_insert_command
-from utils.compression import format_adress
+from utils.compression import format_adress, lossy_tuple_codes
 
-from config import args_compress_config, show_and_recode_compress_args
+from config import args_lossy_compress_config
 
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
 
-LOGGER = logging.getLogger('image.compression')
+LOGGER = logging.getLogger('image.lossycompression')
 CONNECTION = None
-args = args_compress_config()
-WORK_DIR = args.work_dir
-FORM = format_adress()
+args_lcc = args_lossy_compress_config()
+WORK_DIR = args_lcc.work_dir
+FROM = format_adress()
 
 
 def run_program(*args, **kwargs):
@@ -94,8 +94,9 @@ def kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param, cod
 
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
     # kakadu derives width, height, sub-sampling from file name so avoid confusion with folder name
-    cmd = ['{}/kdu_v_compress'.format(FORM.kakadu), '-quiet', '-i',
-           ntpath.basename(source_yuv), '-o', ntpath.basename(encoded_file), '-precise', '-rate', param, '-tolerance',
+    cmd = ['{}/kdu_v_compress'.format(FROM.kakadu), '-quiet', '-i',
+           ntpath.basename(source_yuv), '-o', ntpath.basename(encoded_file), '-precise', '-rate', '-,3',
+           'Creversible=yes', '-tolerance',
            '0']
     if codec == 'kakadu-mse':
         cmd[-2:-2] = ['-no_weights']
@@ -109,7 +110,7 @@ def kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param, cod
         except:
             LOGGER.error("Error while deleting file : " + filePath)
 
-    cmd = ['{}/kdu_v_expand'.format(FORM.kakadu), '-quiet', '-i', encoded_file,
+    cmd = ['{}/kdu_v_expand'.format(FROM.kakadu), '-quiet', '-i', encoded_file,
            '-o', decoded_yuv]
     my_exec(cmd)
 
@@ -228,7 +229,7 @@ def convert_420_to_444(input_420, output_444, width, height, subsampling):
     run_program(cmd)
 
 
-def f(param, codec, image, width, height, temp_folder, subsampling):
+def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
     """
     Method to run an encode with given codec, subsampling, etc. and requested codec parameter like QP or bpp.
     All the commands for encoding, decoding, computing metric, etc. for any given codec should be visible
@@ -242,88 +243,59 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
     :param subsampling: color subsampling
     :return:
     """
-    param = str(param)
-    LOGGER.debug("Encoding image " + image + " with codec " + codec + " for param " + param)
-
+    LOGGER.debug("Encoding image " + image + " with codec " + codec + " LOSSY ")
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
 
-    if codec in ['jpeg', 'jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr'] and subsampling in ['420', '444u']:
+    if codec in ['jpeg'] and subsampling in ['420', '444']:
         cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
         run_program(cmd)
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-        cmd = ['/tools/jpeg/jpeg', '-q', float_to_int(param), '-s', '1x1,2x2,2x2',
+        cmd = ['/tools/jpeg/jpeg', '-q', param_lossy, '-Q', param_lossy, '-h', '-r', '-s',
+               '1x1,2x2,2x2' if subsampling == '420' else '1x1,1x1,1x1',
                get_filename_with_temp_folder(temp_folder, 'source.ppm'),
                encoded_file]
         jpeg_encode_helper(codec, cmd, encoded_file, temp_folder)
 
         cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'source.ppm'), '-interlace', 'plane',
-               '-sampling-factor',
-               '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
+               '-sampling-factor', '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
         run_program(cmd)
 
         cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'decoded.ppm'), '-interlace', 'plane',
-               '-sampling-factor',
-               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+               '-sampling-factor', '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
         run_program(cmd)
 
-    elif codec in ['jpeg', 'jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr'] and subsampling == '444':
-        cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
-        run_program(cmd)
+    elif codec == "webp" and subsampling in ['420']:
 
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-        cmd = ['/tools/jpeg/jpeg', '-q', float_to_int(param), '-s', '1x1,1x1,1x1',
-               get_filename_with_temp_folder(temp_folder, 'source.ppm'),
-               encoded_file]
-        jpeg_encode_helper(codec, cmd, encoded_file, temp_folder)
-
-        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'source.ppm'), '-interlace', 'plane',
-               '-sampling-factor',
-               '4:4:4', source_yuv]
-        run_program(cmd)
-
-        cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'decoded.ppm'), '-interlace', 'plane',
-               '-sampling-factor',
-               '4:4:4', decoded_yuv]
-        run_program(cmd)
-
-
-    elif codec == "webp" and subsampling in ['420', '444u']:
+        decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decode.ppm')
 
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-
         run_program(cmd)
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
 
-        cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/cwebp', '-m', '6', '-q', param, '-s', str(width), str(height),
-
-               '-quiet', source_yuv, '-o', encoded_file]
+        cmd = ['{}/cwebp'.format(FROM.webp), '-z', '9', '-quiet', '-lossless', image, '-o', encoded_file]
 
         run_program(cmd)
 
-        cmd = ['/tools/libwebp-1.1.0-linux-x86-64/bin/dwebp', encoded_file, '-yuv', '-quiet', '-o', decoded_yuv]
-
+        cmd = ['{}/dwebp'.format(FROM.webp), encoded_file, '-ppm', '-quiet', '-o', decoded_ppm]
         run_program(cmd)
 
-        if subsampling == '444u':
-            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
-                                                                            height, subsampling)
+        cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
+        run_program(cmd)
 
 
-    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420', '444u']:
+
+    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420']:
 
         source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '420'))
 
-        encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param,
+        encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv,
+                                                                     param_lossy,
 
                                                                      codec)
-
-        if subsampling == '444u':
-            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
-                                                                            height, subsampling)
 
     elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling == '444':
 
@@ -338,7 +310,7 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
 
             encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
             cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i', source_ppm,
-                   '-o', encoded_file, '-rate', param, '"Ssampling={1,1}"', '-precise', '-tolerance', '0']
+                   '-o', encoded_file, '-rate', '-', '"Ssampling={1,1}"', '-precise', '-tolerance', '0']
             if codec == 'kakadu-mse':
                 cmd[-4:-4] = ['-no_weights']
             run_program(cmd)  # not sure whether yuv444 is being coded in the codestream
@@ -356,41 +328,36 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
             source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '444'))
 
             encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv,
-                                                                         param, codec)
+                                                                         param_lossy, codec)
 
-    elif codec == 'openjpeg' and subsampling in ['420', '444u']:
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
+    elif codec == 'openjpeg' and subsampling in ['420']:
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
         # cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:2:0', source_yuv]
         # run_program(cmd)
-
+        #
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         run_program(cmd)
-
         cmd = ['cp', source_yuv, source_raw]
         run_program(cmd)
-
-        # param is PSNR value [dB]
-        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:2x2:2x2' % (width, height, 3, 8), '-q', param,
-               '-o', encoded_file]
+        # COMPRESS and DECODE
+        cmd = ['opj_compress', '-i', source_raw, '-o', encoded_file, '-F',
+               '%s,%s,%s,%s,u@1x1:2x2:2x2' % (width, height, 3, 8), '-r'
+            , '{}'.format(param_lossy)]
         run_program(cmd)
-
         cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
         run_program(cmd)
-
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
-               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        # decode YUV
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
         run_program(cmd)
 
-        if subsampling == '444u':
-            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
-                   source_yuv]
-            run_program(cmd)
+        # cmd = ['cp', decoded_file, decoded_yuv]
+        # run_program(cmd)
 
     elif codec == 'openjpeg' and subsampling == '444':
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.raw')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
@@ -404,8 +371,8 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
         run_program(cmd)
 
         # param is PSNR value [dB]
-        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:1x1:1x1' % (width, height, 3, 8), '-q', param,
-               '-o', encoded_file]
+        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:1x1:1x1' % (width, height, 3, 8), '-r'
+            , '{}'.format(param_lossy), '-o', encoded_file]
         run_program(cmd)
 
         cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
@@ -414,142 +381,97 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
         cmd = ['cp', decoded_file, decoded_yuv]
         run_program(cmd)
 
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444u']:
-        param = float_to_int(param)
+    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444']:
+        param = float_to_int(param_lossy)
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         run_program(cmd)
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
-        cmd = ['aomenc', '--i420', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
-               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
+        cmd = ['aomenc', '--i420' if subsampling == '420' else '--i444', '--width={}'.format(width),
+               '--height={}'.format(height), '--ivf', '--cpu-used=1',
+               '--end-usage=q', '--lossless=1', '--cq-level={}'.format(param), '--min-q={}'.format(param),
+               '--max-q={}'.format(param),
                '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
-               '--frame-boost=0', '--disable-warning-prompt',
-               '--output={}'.format(encoded_file), source_yuv]
+               '--frame-boost=0', '--disable-warning-prompt', '--output={}'.format(encoded_file), source_yuv]
         if codec == 'avif-ssim':
             cmd[-2:-2] = ['--tune=ssim']
         run_program(cmd)
 
-        cmd = ['aomdec', '--i420', '-o', decoded_yuv, encoded_file]
+        cmd = ['aomdec', '--i420' if subsampling == '420' else '--rawvideo', '-o', decoded_yuv, encoded_file]
         run_program(cmd)
 
-        if subsampling == '444u':
-            source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
-                                                                            height, subsampling)
-
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling == '444':
-        param = float_to_int(param)
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        run_program(cmd)
-
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
-        cmd = ['aomenc', '--i444', '--width={}'.format(width), '--height={}'.format(height), '--ivf', '--cpu-used=1',
-               '--end-usage=q', '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
-               '--passes=2', '--input-bit-depth={}'.format(8), '--bit-depth={}'.format(8), '--lag-in-frames=0',
-               '--frame-boost=0', '--disable-warning-prompt',
-               '--output={}'.format(encoded_file), source_yuv]
-        if codec == 'avif-ssim':
-            cmd[-2:-2] = ['--tune=ssim']
-        run_program(cmd)
-
-        cmd = ['aomdec', '--rawvideo', '-o', decoded_yuv, encoded_file]
-        run_program(cmd)
-
-    elif codec in ['bpg'] and subsampling in ['420', '444u']:
+    elif codec in ['bpg'] and subsampling in ['420', '444']:
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         run_program(cmd)
         # bpg encode
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
-        cmd = ['/tools/libbpg-master/bpgenc', '-f', '420', '-b', '10', '-m', '9', '-q', str(param), '-o', encoded_file,
-               image]
+        cmd = ['/tools/libbpg-master/bpgenc', '-lossless', '-f', '420' if subsampling == '420' else '444', '-b', '8',
+               '-m', '9', '-o', encoded_file, image]
         run_program(cmd)
         # bpg decoder
         decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.ppm')
-        cmd = ['/tools/libbpg-master/bpgdec', '-b', '10', '-o', decoded_file, encoded_file]
+        cmd = ['/tools/libbpg-master/bpgdec', '-b', '8', '-o', decoded_file, encoded_file]
         run_program(cmd)
         # convert
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
-               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
         run_program(cmd)
-        if subsampling == '444u':
-            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
-                   source_yuv]
-            run_program(cmd)
 
-    # elif codec in ['bpg'] and subsampling in ['444']:
-    #     #     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-    #     #     run_program(cmd)
-    #     #     # bpg encode
-    #     #     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
-    #     #     cmd = ['/tools/libbpg-master/bpgenc', '-f', '444', '-b', '10', '-m', '9', '-q', str(param), '-o',
-    #     #            encoded_file, image]
-    #     #     run_program(cmd)
-    #     #     # bpg decoder
-    #     #     decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.ppm')
-    #     #     cmd = ['/tools/libbpg-master/bpgdec', '-b', '10', '-o', decoded_file, encoded_file]
-    #     #     run_program(cmd)
-    #     #     # convert
-    #     #     cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
-    #     #     run_program(cmd)
-
-    elif codec in ['flif'] and subsampling in ['420', '444u']:
+    elif codec in ['flif'] and subsampling in ['420', '444']:
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
         run_program(cmd)
         # flif encode
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
-        cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-J', '-o', '-E', '100', '-Q', str(param), image, encoded_file]
+        if subsampling == '420':
+            cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-J', '-m', '-o', '-E', '100', '-Q', param_lossy,
+                   image, encoded_file]
+        else:
+            cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-o', '-m', '-E', '100', '-Q', param_lossy, image, encoded_file]
         run_program(cmd)
         # flif decoder
         decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
         cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
         run_program(cmd)
         # convert
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
-               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
-        run_program(cmd)
-        if subsampling == '444u':
-            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling),
-                   source_yuv]
-            run_program(cmd)
-
-    elif codec in ['flif'] and subsampling in ['444']:
-        # flif encode
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
-        cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-o', '-E', '100', '-Q', str(param), image, encoded_file]
-        run_program(cmd)
-        # flif decoder
-        decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
-        cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
-        run_program(cmd)
-        # convert
-        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
         run_program(cmd)
 
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
-        run_program(cmd)
+    # elif codec in ['heif'] and subsampling in ['444']:
+    #     jpgfile = get_filename_with_temp_folder(temp_folder, 'jpgfile.jpeg')
+    #
+    #     if image[:-4] != '.jpg' or 'jpeg':
+    #         cmd = ['convert', image, jpgfile]
+    #         run_program(cmd)
+    #         image = jpgfile
+    #     # heif encode
+    #     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
+    #     cmd = ['{}/heif-enc'.format(FROM.heif), '-p x265:lossless=true', '-p x265:tune=grain', '-p x265:complex=100',
+    #            image, '-o', encoded_file]
+    #     run_program(cmd)
+    #     # heif decoder
+    #     decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
+    #     cmd = ['{}/heif-convert'.format(FROM.heif), '-q', '0', encoded_file, decoded_file]
+    #     run_program(cmd)
+    #     # convert
+    #     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+    #     run_program(cmd)
+    #     cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
+    #     run_program(cmd)
 
-    elif codec in ['heif'] and subsampling in ['444']:
-        jpgfile = get_filename_with_temp_folder(temp_folder, 'jpgfile.jpg')
-        if image[:-4] != '.jpg' or 'jpeg':
-            cmd = ['convert', image, jpgfile]
-            run_program(cmd)
-            image = jpgfile
+    elif codec == 'hevc' and subsampling in ['420', '444']:
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        my_exec(cmd)
 
-        # cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        # run_program(cmd)
-        # heif encode
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
-        cmd = ['/tools/libheif-1.7.0/build/bin/heif-enc', '-q', str(param), image, '-o', encoded_file]
-        run_program(cmd)
-        # heif decoder
-        decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
-        cmd = ['/tools/libheif-1.7.0/build/bin/heif-convert', '-q', '100', encoded_file, decoded_file]
-        run_program(cmd)
-        # convert
-        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
-        run_program(cmd)
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
+        cmd = ['{}/TAppEncoderStatic'.format(FROM.hevc),
+               '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_main_rext.cfg', '--CostMode=lossless',
+               '-f', '1', '-fr', '1',
+               '-wdt', width, '-hgt', height, '--InputChromaFormat={}'.format(subsampling),
+               '--ConformanceWindowMode=1', '--TransquantBypassEnable=1', '--CUTransquantBypassFlagForce=1',
+               '-i', source_yuv, '-b', encoded_file, '-o', '/dev/null']
+        my_exec(cmd)
 
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
-        run_program(cmd)
+        cmd = ['{}/TAppDecoderStatic'.format(FROM.hevc), '-b', encoded_file, '-d', '8', '-o', decoded_yuv]
+        my_exec(cmd)
 
     else:
         raise RuntimeError('Unsupported codec and subsampling ' + codec + ' / ' + subsampling)
@@ -560,14 +482,12 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
     return stats, encoded_file
 
 
-def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling):
+def bisection(image, width, height, metric, target, codec, subsampling, param_lossy):
     """ Perform encode with given codec, subsampling, etc. with the goal of hitting given target quality as
     closely as possible. Employs binary search.
     :param inverse: boolean True means QP, else quality factor
-    :param a: a should be less than b
-    :param b: far-end of codec parameter range
     :param ab_tol: how close can a and b get before we exit, used as a terminating condition, just in case.
-    :param metric: string, vmaf or PSNR
+    :param metric: LOSSY
     :param target: target value of vmaf or PSNR
     :param target_tol: say 2 for VMAF, 0.2 for PSNR
     :param codec: string identifying codec
@@ -577,6 +497,9 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     :param subsampling: color subsampling
     :return:
     """
+
+    last_c = str(param_lossy)
+
     temp_uuid = str(uuid.uuid4())
     temp_folder = WORK_DIR + make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling,
                                            uuid=temp_uuid)
@@ -584,30 +507,8 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     mkdir_p(temp_folder)
 
     LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
-                       inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling)))
-
-    c = (a + b) / 2
-    last_c = c
-    while (b - a) > ab_tol:
-
-        quality, encoded_file = f(c, codec, image, width, height, temp_folder, subsampling)
-        last_c = c
-
-        if abs(quality[metric] - target) < target_tol:
-            return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
-                    tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
-        else:
-            if inverse:
-                if quality[metric] < target:
-                    b = c
-                else:
-                    a = c
-            else:
-                if quality[metric] < target:
-                    a = c
-                else:
-                    b = c
-            c = (a + b) / 2
+                       metric, codec, image, width, height, subsampling)))
+    quality, encoded_file = f(image, width, height, temp_folder, codec, subsampling, last_c)
 
     return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
             tuple_minus_uuid, ntpath.basename(image), width, height, temp_folder)
@@ -622,7 +523,8 @@ def update_stats(results):
                 + repr(quality) + ", encoded_file: " + encoded_file
                 + " size: " + str(file_size_bytes) + " bytes")
     TOTAL_BYTES[codec + subsampling + metric + str(target)] += os.path.getsize(encoded_file)
-    TOTAL_METRIC[codec + subsampling + metric + str(target)] += quality[metric]
+    TOTAL_METRIC[codec + subsampling + metric + str(target)] += quality['psnr_avg']
+
     try:
         CONNECTION.execute(get_insert_command(), (tuple_minus_uuid, source_image, width, height,
                                                   codec, c, temp_folder, metric, target,
@@ -687,14 +589,14 @@ def main():
     """ create a pool of worker processes and submit encoding jobs, collect results and exit
     """
     setup_logging(LOGGER=LOGGER, worker=False, worker_id=multiprocessing.current_process().ident)
-    TUPLE_CODECS = tuple_codes()
+    TUPLE_CODECS = lossy_tuple_codes()
 
-    metric = args.metric
-    target_arr = args.target_arr
-    target_tol = args.target_tol
-    db_file_name = args.db_file_name
-    only_perform_missing_encodes = args.only_perform_missing_encodes
-    show_and_recode_compress_args(LOGGER, args)
+    metric = 'psnr_avg'
+    target = 0
+
+    db_file_name = args_lcc.db_file_name
+    only_perform_missing_encodes = args_lcc.only_perform_missing_encodes
+
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),
         multiprocessing.current_process().pid,
@@ -711,7 +613,7 @@ def main():
     CONNECTION = sqlite3.connect(db_file_name, check_same_thread=False)
     create_table_if_needed(CONNECTION, only_perform_missing_encodes)
 
-    pool = multiprocessing.Pool(processes=args.num_process, initializer=initialize_worker)
+    pool = multiprocessing.Pool(processes=4, initializer=initialize_worker)
     images = set(listdir_full_path('/code/images'))
     if len(images) <= 0:
         LOGGER.error(" no source files in ./images.")
@@ -719,31 +621,29 @@ def main():
 
     results = list()
 
-    for target in target_arr:
-        for num, image in enumerate(images):
-            width, height, depth = get_dimensions(image)
-            LOGGER.info(
-                "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
+    for num, image in enumerate(images):
+        width, height, depth = get_dimensions(image)
+        LOGGER.info(
+            "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
 
-            for codec in TUPLE_CODECS:
-                LOGGER.debug(" ")
-                skip_encode = False
-                if only_perform_missing_encodes:
-                    unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
-                                              codec.subsampling)
-                    skip_encode = does_entry_exist(CONNECTION, unique_id)
+        for codec in TUPLE_CODECS:
+            LOGGER.debug(" ")
+            skip_encode = False
+            if only_perform_missing_encodes:
+                unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
+                                          codec.subsampling)
+                skip_encode = does_entry_exist(CONNECTION, unique_id)
 
-                if not skip_encode:
-                    results.append(
-                        (pool.apply_async(bisection,
-                                          args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
-                                                metric, target, target_tol, codec.name, image, width, height,
-                                                codec.subsampling),
-                                          callback=update_stats,
-                                          error_callback=error_function),
-                         codec.name,
-                         codec.subsampling))
-            LOGGER.info('-----------------------------------------------------------------------------------------')
+            if not skip_encode:
+                results.append(
+                    (pool.apply_async(bisection,
+                                      args=(image, width, height, metric, target,
+                                            codec.name, codec.subsampling, codec.param_lossy),
+                                      callback=update_stats,
+                                      error_callback=error_function),
+                     codec.name,
+                     codec.subsampling))
+        LOGGER.info('-----------------------------------------------------------------------------------------')
 
     pool.close()
     pool.join()
@@ -764,35 +664,33 @@ def main():
     if not only_perform_missing_encodes:
         LOGGER.info("Total payload in kilo Bytes:")
         for codec in TUPLE_CODECS:
-            for target in target_arr:
-                if codec.name + codec.subsampling in TOTAL_ERRORS:
-                    LOGGER.info(
-                        '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
-                                                            TOTAL_BYTES[codec.name + codec.subsampling + metric + str(
-                                                                target)] / 1000.0,
-                                                            TOTAL_ERRORS[
-                                                                codec.name + codec.subsampling + metric + str(target)]))
-                else:
-                    LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-                                                  TOTAL_BYTES[
-                                                      codec.name + codec.subsampling + metric + str(target)] / 1000.0))
+            if codec.name + codec.subsampling in TOTAL_ERRORS:
+                LOGGER.info(
+                    '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
+                                                        TOTAL_BYTES[codec.name + codec.subsampling + metric + str(
+                                                            target)] / 1000.0,
+                                                        TOTAL_ERRORS[
+                                                            codec.name + codec.subsampling + metric + str(target)]))
+            else:
+                LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
+                                              TOTAL_BYTES[
+                                                  codec.name + codec.subsampling + metric + str(target)] / 1000.0))
 
         LOGGER.info("Average metric value:")
         for codec in TUPLE_CODECS:
-            for target in target_arr:
-                if codec.name + codec.subsampling in TOTAL_ERRORS:
-                    LOGGER.info(
-                        '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
-                                                            TOTAL_METRIC[
-                                                                codec.name + codec.subsampling + metric + str(target)]
-                                                            / float(len(images)),
-                                                            TOTAL_ERRORS[
-                                                                codec.name + codec.subsampling + metric + str(target)]))
-                else:
-                    LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
-                                                  TOTAL_METRIC[
-                                                      codec.name + codec.subsampling + metric + str(target)] / float(
-                                                      len(images))))
+            if codec.name + codec.subsampling in TOTAL_ERRORS:
+                LOGGER.info(
+                    '  {}: {} (Total errors {})'.format(codec.name + codec.subsampling + metric + str(target),
+                                                        TOTAL_METRIC[
+                                                            codec.name + codec.subsampling + metric + str(target)]
+                                                        / float(len(images)),
+                                                        TOTAL_ERRORS[
+                                                            codec.name + codec.subsampling + metric + str(target)]))
+            else:
+                LOGGER.info('  {}: {}'.format(codec.name + codec.subsampling + metric + str(target),
+                                              TOTAL_METRIC[
+                                                  codec.name + codec.subsampling + metric + str(target)] / float(
+                                                  len(images))))
 
     CONNECTION.close()
     LOGGER.info("\n\n")
