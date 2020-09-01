@@ -32,16 +32,19 @@ from utils.compression import tuple_codes
 from utils.utils_common import get_filename_with_temp_folder, make_my_tuple, float_to_int, mkdir_p, listdir_full_path, \
     setup_logging, get_pixel_format_for_metric_computation, get_pixel_format_for_encoding
 from utils.sqlcmd import get_create_table_command, get_insert_command
-from config import args_config, show_and_recode_args
+from utils.compression import format_adress
 
-LOGGER = logging.getLogger('image.compression')
+from config import args_compress_config, show_and_recode_compress_args
+
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
 
+LOGGER = logging.getLogger('image.compression')
 CONNECTION = None
-args = args_config()
+args = args_compress_config()
 WORK_DIR = args.work_dir
+FORM = format_adress()
 
 
 def run_program(*args, **kwargs):
@@ -50,7 +53,7 @@ def run_program(*args, **kwargs):
 
     kwargs.setdefault("stderr", subprocess.STDOUT)
     kwargs.setdefault("shell", True)
-    kwargs.setdefault("universal_newlines",True)
+    # kwargs.setdefault("universal_newlines", True)
     try:
         output = subprocess.check_output(" ".join(*args), **kwargs)
         return decode(output)
@@ -58,6 +61,12 @@ def run_program(*args, **kwargs):
     except subprocess.CalledProcessError as e:
         LOGGER.error("***** ATTENTION : subprocess call crashed: %s\n%s", args, e.output)
         raise
+
+
+def my_exec(cmd):
+    """ helper to choose method for running commands
+    """
+    return run_program(cmd)
 
 
 def decode(value):
@@ -79,47 +88,34 @@ def get_dimensions(image):
     return width, height, depth
 
 
-def jpegxt_encode_helper_exart(codec, cmd, encoded_file, temp_folder):
-    if codec == 'jpeg-mse':
-        cmd[1:1] = ['-qt', '1']
-    elif codec == 'jpeg-ms-ssim':
-        cmd[1:1] = ['-qt', '2']
-    elif codec == 'jpeg-im':
-        cmd[1:1] = ['-qt', '3']
-    elif codec == 'jpeg-hvs-psnr':
-        cmd[1:1] = ['-qt', '4']
-    run_program(cmd)
-
-    cmd = ['/tools/jpeg/jpeg', encoded_file, get_filename_with_temp_folder(temp_folder, 'decoded.ppm')]
-    run_program(cmd)
-
-
 def kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param, codec):
     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-    run_program(cmd)
+    my_exec(cmd)
 
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
     # kakadu derives width, height, sub-sampling from file name so avoid confusion with folder name
-    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_v_compress', '-quiet', '-i',
-           ntpath.basename(source_yuv),
-           '-o', ntpath.basename(encoded_file), '-precise', '-rate', param, '-tolerance', '0']
+    cmd = ['{}/kdu_v_compress'.format(FORM.kakadu), '-quiet', '-i',
+           ntpath.basename(source_yuv), '-o', ntpath.basename(encoded_file), '-precise', '-rate', param, '-tolerance',
+           '0']
     if codec == 'kakadu-mse':
         cmd[-2:-2] = ['-no_weights']
     run_program(cmd, cwd=temp_folder)
 
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded.yuv')
-    for filePath in glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded*.yuv')):
+
+    for filePath in glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded_*.yuv')):
         try:
             os.remove(filePath)
         except:
             LOGGER.error("Error while deleting file : " + filePath)
 
-    cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_v_expand', '-quiet', '-i', encoded_file,
+    cmd = ['{}/kdu_v_expand'.format(FORM.kakadu), '-quiet', '-i', encoded_file,
            '-o', decoded_yuv]
-    run_program(cmd)
+    my_exec(cmd)
 
-    decoded_yuv_files = glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded*.yuv'))
+    decoded_yuv_files = glob.glob(get_filename_with_temp_folder(temp_folder, 'special_kakadu_decoded_*.yuv'))
     assert len(decoded_yuv_files) == 1
+
     decoded_yuv = decoded_yuv_files[0]
 
     return encoded_file, decoded_yuv, source_yuv
@@ -316,11 +312,15 @@ def f(param, codec, image, width, height, temp_folder, subsampling):
             source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
                                                                             height, subsampling)
 
+
     elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420', '444u']:
+
         source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '420'))
 
         encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv, param,
+
                                                                      codec)
+
         if subsampling == '444u':
             source_yuv, decoded_yuv = convert_420_to_444_source_and_decoded(source_yuv, decoded_yuv, image, width,
                                                                             height, subsampling)
@@ -694,7 +694,7 @@ def main():
     target_tol = args.target_tol
     db_file_name = args.db_file_name
     only_perform_missing_encodes = args.only_perform_missing_encodes
-    show_and_recode_args(LOGGER, args)
+    show_and_recode_compress_args(LOGGER, args)
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),
         multiprocessing.current_process().pid,
