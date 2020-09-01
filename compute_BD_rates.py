@@ -3,36 +3,15 @@ import sys
 import logging
 import ntpath
 from statistics import mean
-from collections import namedtuple
 from collections import defaultdict
-from utils.bd_rate_calculator import BDrateCalculator
-from analyze_encoding_results import apply_size_check
-from utils import *
-from config import args_config,show_and_recode_args
+
+from utils.bd_rate_calculator import BDrateCalculator, get_rates, get_quality, get_formatted_bdrate, \
+    get_formatted_mean_bdrate, my_shorten
+from utils.sqlcmd import get_unique_sorted, get_rate_quality_points, get_unique_sources_sorted, apply_size_check
+from utils.utils_common import easy_logging
+from config import args_BD_config
+
 BD_RATE_EXCEPTION_STRING = 'BD_RATE_EXCEPTION'
-
-
-def get_rates(rate_quality_points):
-    return [rate_quality_point.bpp for rate_quality_point in rate_quality_points]
-
-
-def get_quality(rate_quality_points, metric):
-    return [rate_quality_point.quality[metric] for rate_quality_point in rate_quality_points]
-
-
-def get_formatted_bdrate(val):
-    if isinstance(val, str):
-        return val
-    else:
-        return '{:.2f}'.format(val).rjust(6)
-
-
-def get_formatted_mean_bdrate(val):
-    return '{:.2f}'.format(val).rjust(22)
-
-
-def my_shorten(name, width):
-    return (name[:width - 3] + '...') if len(name) > width else name
 
 
 def print_bd_rates(bdrates_various_metrics, codec, unique_sources, black_list_source_various_metrics,
@@ -64,9 +43,7 @@ def print_bd_rates(bdrates_various_metrics, codec, unique_sources, black_list_so
 
 
 def main():
-
-
-    db_file_name=args_config().db_file_name
+    db_file_name = args_BD_config().db_file_name
 
     connection = sqlite3.connect(db_file_name)
 
@@ -152,4 +129,4 @@ def main():
 
 
 if __name__ == '__main__':
-   main()
+    main()
