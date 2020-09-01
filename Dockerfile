@@ -91,17 +91,13 @@ RUN mkdir -p /tools && \
     ./configure && \
     make final
 
-### FLIF
-RUN echo " ====================  FLIF --- http://flif.info/  ==================== "
 
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
-    tar xvf flif.tar.gz && \
-    rm -f flif.tar.gz && \
-    cd /tools/FLIF-0.3  && \
-    make flif && \
-    make install
+### AVIF
+RUN echo " ====================  AVIF --- https://aomedia.org/ ==================== "
+
+RUN     buildDeps="aom" && \
+        pacman -Syu --noconfirm ${buildDeps}
+
 
 ### BPG
 RUN echo " ====================  BPG --- bellard.org ==================== "
@@ -114,12 +110,6 @@ RUN mkdir -p /tools && \
     rm -f libbpg-master.zip && \
     cd /tools/libbpg-master  && \
     make
-
-### AVIF
-RUN echo " ====================  AVIF --- https://aomedia.org/ ==================== "
-
-RUN     buildDeps="aom" && \
-        pacman -S --noconfirm ${buildDeps}
 
 ### HEIF
 RUN echo " ====================  HEIF --- strukturag/libheif  ==================== "
@@ -151,6 +141,17 @@ RUN echo " ====================  OPENJPEG --- uclouvain/openjpeg  ==============
 
 RUN pacman -Sy openjpeg2 --noconfirm
 
+### FLIF
+RUN echo " ====================  FLIF --- http://flif.info/  ==================== "
+
+RUN mkdir -p /tools && \
+    cd /tools && \
+    wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
+    tar xvf flif.tar.gz && \
+    rm -f flif.tar.gz && \
+    cd /tools/FLIF-0.3  && \
+    make flif && \
+    make install
 
 ### VMAF library
 RUN echo " ====================  VMAFlib --- Netflix/vmaf  ==================== "
@@ -173,4 +174,10 @@ RUN DIR=/tmp/vmaf && \
     make install && \
     cd python && \
     python3 setup.py install
+
+## HEVC (HM)
+RUN pacman -Syu --noconfirm hm svn
+
+RUN cd /tools && \
+    svn checkout https://hevc.hhi.fraunhofer.de/svn/svn_HEVCSoftware/tags/HM-16.20+SCM-8.8/
 
