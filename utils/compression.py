@@ -1,18 +1,13 @@
-import ntpath
-import subprocess
-import json
 from skimage import io, metrics
 from collections import namedtuple
-
-# from script_compress_parallel import LOGGER
 
 
 def tuple_codes():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
         # # 1
-        # CodecType('jpeg', False, 5, 100, 1, '420'),
-        CodecType('jpeg', False, 5, 100, 1, '444'),
+        CodecType('jpeg', False, 5, 100, 1, '420'),
+        # CodecType('jpeg', False, 5, 100, 1, '444'),
         # CodecType('jpeg', False, 5, 100, 1, '444u'),
         #
         # CodecType('jpeg-mse', False, 5, 100, 1, '420'),
@@ -22,7 +17,7 @@ def tuple_codes():
         # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '420'),
         # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444'),
         # CodecType('jpeg-ms-ssim', False, 5, 100, 1, '444u'),
-        # #
+        # # #
         # CodecType('jpeg-im', False, 5, 100, 1, '420'),
         # CodecType('jpeg-im', False, 5, 100, 1, '444'),
         # CodecType('jpeg-im', False, 5, 100, 1, '444u'),
@@ -68,9 +63,49 @@ def tuple_codes():
     return TUPLE_CODECS
 
 
+def lossy_tuple_codes():
+    CodecType = namedtuple('CodecType', ['name', 'param_lossy', 'subsampling'])
+    TUPLE_CODECS = (
+        # # 1
+        CodecType('jpeg', 100, '420'),
+        CodecType('jpeg', 100, '444'),
+        # # # 2
+        CodecType('webp', 100, '420'),
+        # # 3
+        CodecType('kakadu-mse', 3.0, '420'),
+        CodecType('kakadu-mse', 3.0, '444'),
+
+        CodecType('kakadu-visual', 3.0, '420'),
+        CodecType('kakadu-visual', 3.0, '444'),
+        # #
+        CodecType('openjpeg', 1, '420'),# BUG
+        CodecType('openjpeg', 1, '444'),
+        # 4
+        CodecType('avif-mse', 63, '420'),
+        CodecType('avif-mse', 63, '444'),
+
+        CodecType('avif-ssim', 63, '420'),
+        CodecType('avif-ssim', 63, '444'),
+        # 5
+        CodecType('bpg', 0, '420'),
+        CodecType('bpg', 0, '444'),
+        # 6
+        CodecType('flif', 100, '420'), # incomplete 4:2:0 chroma subsampled
+        CodecType('flif', 100, '444'),
+        # 7
+        CodecType('hevc', 0, '420'),
+        CodecType('hevc', 0, '444'),
+
+    )
+    return TUPLE_CODECS
 
 
-
+class format_adress:
+    def __init__(self):
+        self.kakadu = '/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602'
+        self.heif = '/tools/libheif-1.7.0/build/bin'
+        self.hevc='/usr/bin'
+        self.webp='/tools/libwebp-1.1.0-linux-x86-64/bin'
 
 
 def write_log(ref_image_path, dis_image_path, log_path):

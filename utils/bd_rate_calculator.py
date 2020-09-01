@@ -5,6 +5,27 @@ from vmaf.tools.interpolation_utils import InterpolationUtils
 __copyright__ = "Copyright 2016-2018, Netflix, Inc."
 __license__ = "Apache, Version 2.0"
 
+def get_rates(rate_quality_points):
+    return [rate_quality_point.bpp for rate_quality_point in rate_quality_points]
+
+
+def get_quality(rate_quality_points, metric):
+    return [rate_quality_point.quality[metric] for rate_quality_point in rate_quality_points]
+
+
+def get_formatted_bdrate(val):
+    if isinstance(val, str):
+        return val
+    else:
+        return '{:.2f}'.format(val).rjust(6)
+
+
+def get_formatted_mean_bdrate(val):
+    return '{:.2f}'.format(val).rjust(22)
+
+
+def my_shorten(name, width):
+    return (name[:width - 3] + '...') if len(name) > width else name
 
 class BDrateCalculator(object):
     """

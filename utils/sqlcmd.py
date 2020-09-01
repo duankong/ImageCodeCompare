@@ -24,7 +24,7 @@ def get_rate_quality_points(connection, sub_sampling, codec, source, total_pixel
     return rate_quality_points
 
 def query_for_codec(codec, sub_sampling, target_metric, target_value):
-    return "SELECT {},FILE_SIZE_BYTES,VMAF FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
+    return "SELECT {},FILE_SIZE_BYTES,VMAF,SOURCE FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
         .format(target_metric.upper(), codec, sub_sampling, target_metric, target_value)
 
 def get_unique_sources_sorted(connection):
@@ -35,6 +35,11 @@ def get_unique_sources_sorted(connection):
 
 def get_unique_sorted(connection, name):
     unique_sources = connection.execute('SELECT DISTINCT {} FROM ENCODES'.format(name)).fetchall()
+    unique_sources = [elem[0] for elem in unique_sources]
+    return sorted(list(set(unique_sources)))
+
+def get_unique_sorted_with_sub_sampling(connection, name,sub_sampling):
+    unique_sources = connection.execute('SELECT {} FROM ENCODES WHERE SUB_SAMPLING={}'.format(name,sub_sampling)).fetchall()
     unique_sources = [elem[0] for elem in unique_sources]
     return sorted(list(set(unique_sources)))
 
