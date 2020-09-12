@@ -13,7 +13,7 @@ from utils.sqlcmd import get_unique_sorted, query_for_codec, apply_checks_before
 
 from config import args_analyze_config
 
-blanket = 10
+blanket = 20
 codec_len = 15
 
 
@@ -30,17 +30,19 @@ def showresult(logger, codecs, sub_sampling, unique_sorted_metric_values, source
     logger.info(codecs_string)
     for target in unique_sorted_metric_values:
         all_codec_results, codec_results_terse, all_codec_results_terse_all = results_dict[target]
-        # === EVE === #
-        for i in range(len(all_codec_results_terse_all[0])):
-            consolidated_results = ""
-            for a in all_codec_results_terse_all:
-                consolidated_results += '{:.2f}%'.format(a[i]).rjust(codec_len)
-            logger.info('{}:{}'.format(str(source_image_all[i]).ljust(blanket), consolidated_results))
-        # === AVG === #
+        # ======================== EVE ======================== #
+        if args_analyze_config().every_images == 1:
+            for i in range(len(all_codec_results_terse_all[0])):
+                consolidated_results = ""
+                for a in all_codec_results_terse_all:
+                    consolidated_results += '{:.2f}%'.format(a[i]).rjust(codec_len)
+                logger.info('{}:{}'.format(str(source_image_all[i]).ljust(blanket), consolidated_results))
+        # ======================== AVG ======================== #
         consolidated_results = ""
         for a in codec_results_terse:
             consolidated_results += a.ljust(codec_len)
-        logger.info('{}:{}'.format(str(target if not args_analyze_config().lossless else 'avg({})'.format(
+        logger.info('{}:{}'.format(str('T {}({})'.format(target, len(
+            all_codec_results_terse_all[0])) if not args_analyze_config().lossless else 'avg({})'.format(
             len(all_codec_results_terse_all[0]))).ljust(blanket),
                                    consolidated_results))
     logger.info('=' * (blanket + 1 + codec_len * len(codecs)))
@@ -73,7 +75,7 @@ def main():
     verbose = args_analyze_config().quiet
     logger = easy_logging(file_prefix="bitrate_savings", db_file_name=db_file_name)  # logging
     connection = sqlite3.connect(db_file_name)  # connect database
-    baseline_codec = 'jpeg'  # baseline
+    baseline_codec = args_analyze_config().baseline_codec  # baseline
     sub_sampling_arr = get_unique_sorted(connection, "SUB_SAMPLING")  # subsampling
     color_list = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray',
                   'tab:olive', 'tab:cyan']

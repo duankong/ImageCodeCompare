@@ -23,9 +23,9 @@ def get_default_target_arr(metric):
     if metric == "file_size_bytes":
         print("[@get_default_target_arr] file_size_bytes have no default parameters")
         exit(1)
-    arr['psnr_avg'] = [20, 23, 25, 27, 30, 32, 35]
-    arr['ssim'] = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99]
-    arr['vmaf'] = [50, 75, 85, 89, 90, 95]
+    arr['psnr_avg'] = [23, 25, 30]
+    arr['ssim'] = [0.5, 0.8, 0.95]
+    arr['vmaf'] = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 99]
     return arr[metric]
 
 
@@ -34,12 +34,12 @@ def args_compress_config():
                                      description="-------------",
                                      epilog='''the end of usage''')
     ## main
-    parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
+    parser.add_argument('-m', '--metric', type=str, default='vmaf',
                         choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes'],
                         help='the metric for compare (default = psnr_avg)')
     parser.add_argument('-arr', '--target_arr', type=list, help='the target_arr (default = [20, 25, 27.5, 30, 32, 35])')
 
-    parser.add_argument('-tol', '--target_tol', type=float, help='the target_tol (default = False)')
+    parser.add_argument('-tol', '--target_tol', type=float, help='the target_tol (default = 0.02)')
 
     parser.add_argument('-mis_codec', '--only_perform_missing_encodes', type=boolean_string, choices=[True, False],
                         help='only perform missing encodes (default = False)')
@@ -73,14 +73,36 @@ def args_lossy_compress_config():
                         help="the db file for compress result (default = 'encoding_results_lossy.db')")
 
     ## miner
-    parser.add_argument('-np', '--num_process', type=int, help='the num of process (default = 4)')
+    parser.add_argument('-np', '--num_process', type=int, default=4, help='the num of process (default = 4)')
     parser.add_argument('-w', '--work_dir', default="/image_test/", type=str,
                         help='the work directory in container (default = "/image_test/")')
     ## version
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(_VERSION_))
     ## default
     parser.set_defaults(only_perform_missing_encodes=False,
-                        num_process=4,
+                        db_file_name='encoding_results_{}.db'.format('lossy'))
+    return parser.parse_args()
+
+
+def args_lossy_compress_high_dynamic_range_config():
+    parser = argparse.ArgumentParser(prog="lossy_script_compress_parallel",
+                                     description="-------------",
+                                     epilog='''the end of usage''')
+    ## main
+    parser.add_argument('-mis_codec', '--only_perform_missing_encodes', type=boolean_string, choices=[True, False],
+                        help='only perform missing encodes (default = False)')
+
+    parser.add_argument('-db', '--db_file_name', type=str,
+                        help="the db file for compress result (default = 'encoding_results_lossy.db')")
+
+    ## miner
+    parser.add_argument('-np', '--num_process', type=int, default=4, help='the num of process (default = 4)')
+    parser.add_argument('-w', '--work_dir', default="/image_test/", type=str,
+                        help='the work directory in container (default = "/image_test/")')
+    ## version
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(_VERSION_))
+    ## default
+    parser.set_defaults(only_perform_missing_encodes=False,
                         db_file_name='encoding_results_{}.db'.format('lossy'))
     return parser.parse_args()
 
@@ -102,18 +124,24 @@ def args_analyze_config():
                                      description="-------------",
                                      epilog='''the end of usage''')
     ## main
-    parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
-                        choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes', 'LOSSY'],
-                        help='the target metric (default = psnr_avg)')
-    parser.add_argument('-l', '--lossless', type=boolean_string, default=False,
+    parser.add_argument('-m', '--metric', type=str, required=True,
+                        choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes', 'lossy'],
+                        help='the target metric ')
+    parser.add_argument('-db', '--db_file_name', type=str,required=True,
+                        help="chose the db file for analyze ")
+    parser.add_argument('-l', '--lossless', type=boolean_string, required=True,
                         choices=[True, False],
-                        help='analyze the lossless result ? (default = False)')
-    parser.add_argument('-db', '--db_file_name', type=str, default='encoding_results_lossy.db',
-                        help="chose the db file for analyze (default = 'encoding_results_lossy.db')")
-    parser.add_argument('-q', '--quiet', type=int, default=0,choices=[0,1],
+                        help='analyze the lossless result ?')
+    ## miner
+    parser.add_argument('-bc', '--baseline_codec', type=str, default='jpeg', help=" select the  baseline_codec")
+    parser.add_argument('-e', '--every_images', type=int, default=1, choices=[0, 1],
+                        help="to show every compress image  (default = 1)")
+    parser.add_argument('-q', '--quiet', type=int, default=0, choices=[0, 1],
                         help="to show less information  (default = 0)")
     ## version
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(_VERSION_))
+    ## default
+    parser.set_defaults(db_file_name='encoding_results_{}.db'.format(parser.parse_args().metric))
     return parser.parse_args()
 
 

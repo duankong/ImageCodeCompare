@@ -32,16 +32,16 @@ from utils.utils_common import get_filename_with_temp_folder, make_my_tuple, flo
 from utils.sqlcmd import get_create_table_command, get_insert_command
 from utils.compression import format_adress, lossy_tuple_codes
 
-from config import args_lossy_compress_config
+from config import args_lossy_compress_high_dynamic_range_config
 
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
 
-LOGGER = logging.getLogger('image.lossycompression')
+LOGGER = logging.getLogger('image.lossycompression_high_dynamic_range')
 CONNECTION = None
-args_lcc = args_lossy_compress_config()
-WORK_DIR = args_lcc.work_dir
+args_lcc_hdr = args_lossy_compress_high_dynamic_range_config()
+WORK_DIR = args_lcc_hdr.work_dir
 FROM = format_adress()
 
 
@@ -197,36 +197,6 @@ def compute_metrics(ref_image, dist_image, width, height, temp_folder, subsampli
     return stats
 
 
-def convert_format(image, temp_folder, fileneme):
-    image_convert = get_filename_with_temp_folder(temp_folder, fileneme)
-    cmd = ['convert', image, image_convert]
-    run_program(cmd)
-    return image_convert
-
-
-def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
-    suffix = '.420_to_444.yuv'
-    source_yuv = source_yuv_420 + suffix
-    decoded_yuv = decoded_yuv_420 + suffix
-
-    # 444 source yuv is directly made from input source image
-    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), source_yuv]
-    run_program(cmd)
-
-    # 444 decoded yuv is made from previously decoded 420 yuv
-    convert_420_to_444(decoded_yuv_420, decoded_yuv, width, height, subsampling)
-
-    return source_yuv, decoded_yuv
-
-
-def convert_420_to_444(input_420, output_444, width, height, subsampling):
-    assert subsampling == '444u'
-    cmd = ['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_encoding(subsampling),
-           '-s:v', '%s,%s' % (width, height), '-i', input_420,
-           '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), output_444]
-    run_program(cmd)
-
-
 def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
     """
     Method to run an encode with given codec, subsampling, etc. and requested codec parameter like QP or bpp.
@@ -241,7 +211,7 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
     :param subsampling: color subsampling
     :return:
     """
-    LOGGER.debug("Encoding image " + image + " with codec " + codec + " LOSSY ")
+    LOGGER.debug("Encoding image " + image + " with codec " + codec + " LOSSY High Dynamic Range")
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
@@ -292,7 +262,6 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
 
         encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper(image, subsampling, temp_folder, source_yuv,
                                                                      param_lossy,
-
                                                                      codec)
 
     elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling == '444':
@@ -570,8 +539,8 @@ def main():
     metric = 'psnr_avg'
     target = 0
 
-    db_file_name = args_lcc.db_file_name
-    only_perform_missing_encodes = args_lcc.only_perform_missing_encodes
+    db_file_name = args_lcc_hdr.db_file_name
+    only_perform_missing_encodes = args_lcc_hdr.only_perform_missing_encodes
 
     LOGGER.info(
         'started main, current thread ID %s %s %s', multiprocessing.current_process(),

@@ -170,5 +170,12 @@ def get_pixel_format_for_encoding(subsampling):
     return pixel_format
 
 
+def decode(value):
+    """ Convert bytes to string, if needed
+    """
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return value
+
 if __name__ == '__main__':
     pass
