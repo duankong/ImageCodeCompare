@@ -27,12 +27,10 @@ import ntpath
 import threading
 import sqlite3
 
-from utils.compression import tuple_codes
-
 from utils.utils_common import get_filename_with_temp_folder, make_my_tuple, float_to_int, mkdir_p, listdir_full_path, \
     setup_logging, get_pixel_format_for_metric_computation, get_pixel_format_for_encoding
 from utils.sqlcmd import get_create_table_command, get_insert_command
-from utils.compression import format_adress, lossy_tuple_codes
+from utils.compression import format_adress, lossy_tuple_codes_high_dynamic_range
 
 from config import args_lossy_compress_config
 
@@ -199,35 +197,6 @@ def compute_metrics(ref_image, dist_image, width, height, temp_folder, subsampli
     return stats
 
 
-def convert_format(image, temp_folder, fileneme):
-    image_convert = get_filename_with_temp_folder(temp_folder, fileneme)
-    cmd = ['convert', image, image_convert]
-    run_program(cmd)
-    return image_convert
-
-
-def convert_420_to_444_source_and_decoded(source_yuv_420, decoded_yuv_420, image, width, height, subsampling):
-    suffix = '.420_to_444.yuv'
-    source_yuv = source_yuv_420 + suffix
-    decoded_yuv = decoded_yuv_420 + suffix
-
-    # 444 source yuv is directly made from input source image
-    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), source_yuv]
-    run_program(cmd)
-
-    # 444 decoded yuv is made from previously decoded 420 yuv
-    convert_420_to_444(decoded_yuv_420, decoded_yuv, width, height, subsampling)
-
-    return source_yuv, decoded_yuv
-
-
-def convert_420_to_444(input_420, output_444, width, height, subsampling):
-    assert subsampling == '444u'
-    cmd = ['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_encoding(subsampling),
-           '-s:v', '%s,%s' % (width, height), '-i', input_420,
-           '-f', 'rawvideo', '-pix_fmt', get_pixel_format_for_metric_computation(subsampling), output_444]
-    run_program(cmd)
-
 
 def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
     """
@@ -331,7 +300,7 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
                                                                          param_lossy, codec)
 
     elif codec == 'openjpeg' and subsampling in ['420']:
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
@@ -357,7 +326,7 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
         # run_program(cmd)
 
     elif codec == 'openjpeg' and subsampling == '444':
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jp2')
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.raw')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
@@ -417,45 +386,23 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
         run_program(cmd)
 
     elif codec in ['flif'] and subsampling in ['420', '444']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-        run_program(cmd)
         # flif encode
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
         if subsampling == '420':
             cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-J', '-m', '-o', '-E', '100', '-Q', param_lossy,
                    image, encoded_file]
         else:
-            cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-o', '-m', '-E', '100', '-Q', param_lossy, image, encoded_file]
+            cmd = ['/tools/FLIF-0.3/src/flif', '-e', '-m', '-o', '-E', '100', '-Q', param_lossy, image, encoded_file]
         run_program(cmd)
         # flif decoder
         decoded_file = get_filename_with_temp_folder(temp_folder, 'flif_decode.png')
         cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
         run_program(cmd)
         # convert
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
+        run_program(cmd)
         cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
         run_program(cmd)
-
-    # elif codec in ['heif'] and subsampling in ['444']:
-    #     jpgfile = get_filename_with_temp_folder(temp_folder, 'jpgfile.jpeg')
-    #
-    #     if image[:-4] != '.jpg' or 'jpeg':
-    #         cmd = ['convert', image, jpgfile]
-    #         run_program(cmd)
-    #         image = jpgfile
-    #     # heif encode
-    #     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.heif')
-    #     cmd = ['{}/heif-enc'.format(FROM.heif), '-p x265:lossless=true', '-p x265:tune=grain', '-p x265:complex=100',
-    #            image, '-o', encoded_file]
-    #     run_program(cmd)
-    #     # heif decoder
-    #     decoded_file = get_filename_with_temp_folder(temp_folder, 'heif_decode.png')
-    #     cmd = ['{}/heif-convert'.format(FROM.heif), '-q', '0', encoded_file, decoded_file]
-    #     run_program(cmd)
-    #     # convert
-    #     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
-    #     run_program(cmd)
-    #     cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding(subsampling), decoded_yuv]
-    #     run_program(cmd)
 
     elif codec == 'hevc' and subsampling in ['420', '444']:
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding(subsampling), source_yuv]
@@ -589,7 +536,7 @@ def main():
     """ create a pool of worker processes and submit encoding jobs, collect results and exit
     """
     setup_logging(LOGGER=LOGGER, worker=False, worker_id=multiprocessing.current_process().ident)
-    TUPLE_CODECS = lossy_tuple_codes()
+    TUPLE_CODECS = lossy_tuple_codes_high_dynamic_range()
 
     metric = 'psnr_avg'
     target = 0
