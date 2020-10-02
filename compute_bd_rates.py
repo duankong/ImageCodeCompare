@@ -1,14 +1,11 @@
 import sqlite3
-import sys
-import logging
-import ntpath
 from statistics import mean
 from collections import defaultdict
 
 from utils.bd_rate_calculator import BDrateCalculator, get_rates, get_quality, get_formatted_bdrate, \
     get_formatted_mean_bdrate, my_shorten
-from utils.sqlcmd import get_unique_sorted, get_rate_quality_points, get_unique_sources_sorted, apply_size_check
-from utils.utils_common import easy_logging
+from utils.MysqlFun import get_unique_sorted, get_rate_quality_points, get_unique_sources_sorted, apply_size_check
+from utils.UtilsCommon import easy_logging
 from config import args_BD_config
 
 BD_RATE_EXCEPTION_STRING = 'BD_RATE_EXCEPTION'

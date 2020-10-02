@@ -18,7 +18,7 @@ COPY pacman.conf /etc/
 COPY bash.bashrc /etc/
 
 RUN     pacman -Sy && \
-#        pacman -Syu --noconfirm && \
+        pacman -Syu --noconfirm && \
         source /etc/bash.bashrc
 
 RUN     buildDeps="wget \
@@ -154,30 +154,36 @@ RUN mkdir -p /tools && \
     make install
 
 ### VMAF library
-RUN echo " ====================  VMAFlib --- Netflix/vmaf  ==================== "
+RUN     echo " ====================  VMAFlib --- Netflix/vmaf  ==================== "
 
 RUN     buildDeps="meson" && \
         pacman -Sy --noconfirm ${buildDeps}
 
 RUN     buildPacket="Cython \
-                     argparse" &&\
+                     argparse \
+                     pypng" &&\
        	pip install ${buildPacket}
 
-RUN DIR=/tmp/vmaf && \
-    mkdir -p ${DIR} && \
-    cd ${DIR} && \
-    wget -O vmaf.zip https://github.com/Netflix/vmaf/archive/v1.5.2.zip && \
-    unzip vmaf.zip && \
-    rm -f vmaf.zip && \
-    cd vmaf-1.5.2 && \
-    make && \
-    make install && \
-    cd python && \
-    python3 setup.py install
+RUN     DIR=/tmp/vmaf && \
+        mkdir -p ${DIR} && \
+        cd ${DIR} && \
+        wget -O vmaf.zip https://github.com/Netflix/vmaf/archive/v1.5.2.zip && \
+        unzip vmaf.zip && \
+        rm -f vmaf.zip && \
+        cd vmaf-1.5.2 && \
+        make && \
+        make install && \
+        cd python && \
+        python3 setup.py install
 
 ## HEVC (HM)
-RUN pacman -Syu --noconfirm hm svn
+RUN     pacman -Sy --noconfirm hm svn
 
-RUN cd /tools && \
-    svn checkout https://hevc.hhi.fraunhofer.de/svn/svn_HEVCSoftware/tags/HM-16.20+SCM-8.8/
+RUN     cd /tools && \
+        svn checkout https://hevc.hhi.fraunhofer.de/svn/svn_HEVCSoftware/tags/HM-16.20+SCM-8.8/
+
+COPY    makefile.base  /tools/HM-16.20+SCM-8.8/build/linux/common
+
+RUN     cd  /tools/HM-16.20+SCM-8.8/build/linux && \
+        make release_highbitdepth
 

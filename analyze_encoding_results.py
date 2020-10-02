@@ -1,14 +1,13 @@
 import sqlite3
-import statistics
-import sys
-import logging
 import numpy as np
 import ntpath
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-from utils.utils_common import easy_logging, get_mean_metric_value_file_size_bytes, get_metric_value_file_size_bytes
-from utils.sqlcmd import get_unique_sorted, query_for_codec, apply_checks_before_analyzing, apply_size_check, \
+from utils.UtilsCommon import easy_logging, get_mean_metric_value_file_size_bytes, get_metric_value_file_size_bytes, \
+    get_print_string
+
+from utils.MysqlFun import get_unique_sorted, query_for_codec, apply_checks_before_analyzing, apply_size_check, \
     get_unique_sorted_with_sub_sampling
 
 from config import args_analyze_config
@@ -17,7 +16,7 @@ blanket = 20
 codec_len = 15
 
 
-def showresult(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict):
+def show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict):
     print('\n')
 
     logger.info('=' * (blanket + 1 + codec_len * len(codecs)))
@@ -47,25 +46,6 @@ def showresult(logger, codecs, sub_sampling, unique_sorted_metric_values, source
                                    consolidated_results))
     logger.info('=' * (blanket + 1 + codec_len * len(codecs)))
     logger.info("\n\n")
-
-
-def get_mean_metric_print(metric_name, metric_value, vmaf_value):
-    if metric_name.upper() == 'SSIM':
-        return '{:.5f} (mean VMAF {:.2f})'.format(metric_value, vmaf_value)
-    else:
-        return '{:.2f}'.format(metric_value)
-
-
-def get_print_string(codec, sub_sampling, count, metric_value, file_size, metric_name, vmaf_value):
-    line = '{} {} ({} images): mean {} {}, mean file size in bytes {}'.format(codec,
-                                                                              sub_sampling,
-                                                                              count,
-                                                                              metric_name.upper(),
-                                                                              get_mean_metric_print(metric_name,
-                                                                                                    metric_value,
-                                                                                                    vmaf_value),
-                                                                              file_size)
-    return line
 
 
 def main():
@@ -130,8 +110,10 @@ def main():
                     '{} {:.2f}%'.format(codec, (file_size - baseline_file_size) / baseline_file_size * 100.0))
                 results_list_terse.append(
                     '{:.2f}%'.format((file_size - baseline_file_size) / baseline_file_size * 100.0).rjust(codec_len))
+
                 metric_values_all, file_size_all, vmaf_values_all, source_image_all = get_metric_value_file_size_bytes(
                     results)
+
                 assert source_image_all == baseline_source_image_all
                 results_list_terse_all.append((np.array(file_size_all) - np.array(baseline_file_size_all)) / np.array(
                     baseline_file_size_all) * 100)
@@ -142,7 +124,7 @@ def main():
             results_dict[target] = (results_list, results_list_terse, results_list_terse_all)
             print("")
         # ===================================  SHOW  RESULT  =================================== #
-        showresult(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict)
+        show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict)
 
         # ===================================     PLOT     =================================== #
         fig = plt.figure(figsize=(12.8, 7.2))

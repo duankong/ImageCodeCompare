@@ -5,9 +5,40 @@ import glob
 import logging
 import statistics
 import datetime
+import multiprocessing
+
+
+"""
+----------------------------------------------
+SHOW_FORMAT
+----------------------------------------------
+"""
+def get_mean_metric_print(metric_name, metric_value, vmaf_value):
+    if metric_name.upper() == 'SSIM':
+        return '{:.5f} (mean VMAF {:.2f})'.format(metric_value, vmaf_value)
+    else:
+        return '{:.2f}'.format(metric_value)
+
+
+def get_print_string(codec, sub_sampling, count, metric_value, file_size, metric_name, vmaf_value):
+    line = '{} {} ({} images): mean {} {}, mean file size in bytes {}'.format(codec,
+                                                                              sub_sampling,
+                                                                              count,
+                                                                              metric_name.upper(),
+                                                                              get_mean_metric_print(metric_name,
+                                                                                                    metric_value,
+                                                                                                    vmaf_value),
+                                                                              file_size)
+    return line
+"""
+----------------------------------------------
+METRIC
+----------------------------------------------
+"""
 
 
 def get_metric_value_file_size_bytes(results):
+    results = sorted(results, key=lambda x: x[-1])
     metric_values = [elem[0] for elem in results]
     file_size_values = [elem[1] for elem in results]
     vmaf_values = [elem[2] for elem in results]
@@ -19,6 +50,13 @@ def get_mean_metric_value_file_size_bytes(results):
     metric_values, file_size_values, vmaf_values, source_image = get_metric_value_file_size_bytes(results)
     return statistics.mean(metric_values), statistics.mean(file_size_values), len(metric_values), statistics.mean(
         vmaf_values)
+
+
+"""
+----------------------------------------------
+LOGGER
+----------------------------------------------
+"""
 
 
 def easy_logging(file_prefix, db_file_name):
@@ -65,21 +103,11 @@ def setup_logging(LOGGER, worker, worker_id):
     LOGGER.setLevel('DEBUG')
 
 
-def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling, uuid=None):
-    """ make unique tuple for unique directory, primary key in DB, etc.
-    """
-    (filepath, tempfilename) = os.path.split(image)
-    filename, extension = os.path.splitext(tempfilename)
-    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
-        .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
-                codec=codec,
-                metric=metric, target=target, subsampling=subsampling)
-    if uuid is not None:
-        my_tuple = my_tuple + uuid
-    if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
-        LOGGER.error("ERROR : Tuple too long : " + my_tuple)
-    assert len(my_tuple) < 256
-    return my_tuple
+"""
+----------------------------------------------
+DICTIONARY
+----------------------------------------------
+"""
 
 
 def mkdir_p(path):
@@ -110,12 +138,9 @@ def listdir_full_path(directory):
             yield os.path.abspath(os.path.join(directory, f))
 
 
-# def run_program_simple(*args, **kwargs):
-#     """ simple way to run a command ignoring stderr and stdout
-#     """
-#     output = os.system(" ".join(*args) + " >/dev/null 2>&1", **kwargs)
-#     if output != 0:
-#         raise RuntimeError("failed to execute " + " ".join(*args))
+def check_dirs(target_path):
+    if not os.path.exists(target_path):
+        os.makedirs(target_path)
 
 
 def get_filename_with_temp_folder(temp_folder, filename):
@@ -132,10 +157,11 @@ def remove_exist_file(temp_folder, filename, LOGGER):
             LOGGER.error("Error while deleting file : " + filePath)
 
 
-def float_to_int(param):
-    """help to convert param to int
-    """
-    return str(int(float(param)))
+"""
+----------------------------------------------
+PIXEL_FORMAT
+----------------------------------------------
+"""
 
 
 def get_pixel_format_for_metric_computation(subsampling):
@@ -146,8 +172,6 @@ def get_pixel_format_for_metric_computation(subsampling):
     if subsampling == '420':
         pixel_format = 'yuvj420p'
     elif subsampling == '444':
-        pixel_format = 'yuvj444p'
-    elif subsampling == '444u':
         pixel_format = 'yuvj444p'
     else:
         raise RuntimeError('Unsupported subsampling ' + subsampling)
@@ -163,11 +187,42 @@ def get_pixel_format_for_encoding(subsampling):
         pixel_format = 'yuvj420p'
     elif subsampling == '444':
         pixel_format = 'yuvj444p'
-    elif subsampling == '444u':
-        pixel_format = 'yuvj420p'
     else:
         raise RuntimeError('Unsupported subsampling ' + subsampling)
     return pixel_format
+
+
+def get_pixel_format_for_metric_computation_16bit(subsampling):
+    """ helper to set pixel format from subsampling, assuming full range,
+        for metric computation
+    """
+    pixel_format = None
+    if subsampling == '420':
+        pixel_format = 'yuv420p16le'
+    elif subsampling == '444':
+        pixel_format = 'yuv444p16le'
+    else:
+        raise RuntimeError('Unsupported subsampling ' + subsampling)
+    return pixel_format
+
+
+def get_pixel_format_for_encoding_16bit(subsampling):
+    """ helper to set pixel format from subsampling, assuming full range,
+        for converting source to yuv prior to encoding
+    """
+    pixel_format = None
+    if subsampling == '420':
+        pixel_format = 'yuv420p16le'
+    elif subsampling == '444':
+        pixel_format = 'yuv444p16le'
+    else:
+        raise RuntimeError('Unsupported subsampling ' + subsampling)
+    return pixel_format
+"""
+----------------------------------------------
+OTHERS
+----------------------------------------------
+"""
 
 
 def decode(value):
@@ -176,6 +231,30 @@ def decode(value):
     if isinstance(value, bytes):
         return value.decode("utf-8")
     return value
+
+
+def float_to_int(param):
+    """help to convert param to int
+    """
+    return str(int(float(param)))
+
+
+def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling, uuid=None):
+    """ make unique tuple for unique directory, primary key in DB, etc.
+    """
+    (filepath, tempfilename) = os.path.split(image)
+    filename, extension = os.path.splitext(tempfilename)
+    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
+        .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
+                codec=codec,
+                metric=metric, target=target, subsampling=subsampling)
+    if uuid is not None:
+        my_tuple = my_tuple + uuid
+    if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
+        LOGGER.error("ERROR : Tuple too long : " + my_tuple)
+    assert len(my_tuple) < 256
+    return my_tuple
+
 
 if __name__ == '__main__':
     pass

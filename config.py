@@ -23,18 +23,25 @@ def get_default_target_arr(metric):
     if metric == "file_size_bytes":
         print("[@get_default_target_arr] file_size_bytes have no default parameters")
         exit(1)
-    arr['psnr_avg'] = [23, 25, 30]
+    arr['psnr_avg'] = [50]
     arr['ssim'] = [0.5, 0.8, 0.95]
     arr['vmaf'] = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 99]
     return arr[metric]
 
 
-def args_compress_config():
+"""
+---------------------------------------------------------
+1 compress in lossy model 8bits  有损8bit
+---------------------------------------------------------
+"""
+
+
+def args_lossy_compress_config():
     parser = argparse.ArgumentParser(prog="script_compress_parallel",
                                      description="-------------",
                                      epilog='''the end of usage''')
     ## main
-    parser.add_argument('-m', '--metric', type=str, default='vmaf',
+    parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
                         choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes'],
                         help='the metric for compare (default = psnr_avg)')
     parser.add_argument('-arr', '--target_arr', type=list, help='the target_arr (default = [20, 25, 27.5, 30, 32, 35])')
@@ -44,10 +51,9 @@ def args_compress_config():
     parser.add_argument('-mis_codec', '--only_perform_missing_encodes', type=boolean_string, choices=[True, False],
                         help='only perform missing encodes (default = False)')
 
+    ## miner
     parser.add_argument('-db', '--db_file_name', type=str,
                         help="the db file for compress result (default = 'encoding_results_psnr_avg.db')")
-
-    ## miner
     parser.add_argument('-np', '--num_process', default=4, type=int, help='the num of process (default = 4)')
     parser.add_argument('-w', '--work_dir', default="/image_test/", type=str,
                         help='the work directory in container (default = "/image_test/")')
@@ -61,7 +67,14 @@ def args_compress_config():
     return parser.parse_args()
 
 
-def args_lossy_compress_config():
+"""
+---------------------------------------------------------
+2 compress in lossless model 8bits 无损8bit
+---------------------------------------------------------
+"""
+
+
+def args_lossless_compress_config():
     parser = argparse.ArgumentParser(prog="lossy_script_compress_parallel",
                                      description="-------------",
                                      epilog='''the end of usage''')
@@ -82,9 +95,54 @@ def args_lossy_compress_config():
     parser.set_defaults(only_perform_missing_encodes=False,
                         db_file_name='encoding_results_{}.db'.format('lossy'))
     return parser.parse_args()
+
+
+"""
+---------------------------------------------------------
+3 compress in lossy model 16bits  有损16bit
+---------------------------------------------------------
+"""
 
 
 def args_lossy_compress_high_dynamic_range_config():
+    parser = argparse.ArgumentParser(prog="script_compress_parallel",
+                                     description="-------------",
+                                     epilog='''the end of usage''')
+    ## main
+    parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
+                        choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes'],
+                        help='the metric for compare (default = psnr_avg)')
+    parser.add_argument('-arr', '--target_arr', type=list, help='the target_arr (default = [20, 25, 27.5, 30, 32, 35])')
+
+    parser.add_argument('-tol', '--target_tol', type=float, help='the target_tol (default = 0.02)')
+
+    parser.add_argument('-mis_codec', '--only_perform_missing_encodes', type=boolean_string, choices=[True, False],
+                        help='only perform missing encodes (default = False)')
+
+    ## miner
+    parser.add_argument('-db', '--db_file_name', type=str,
+                        help="the db file for compress result (default = 'encoding_results_hdr_psnr_avg.db')")
+    parser.add_argument('-np', '--num_process', default=4, type=int, help='the num of process (default = 4)')
+    parser.add_argument('-w', '--work_dir', default="/image_test/", type=str,
+                        help='the work directory in container (default = "/image_test/")')
+    ## version
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(_VERSION_))
+    ## default
+    parser.set_defaults(target_arr=get_default_target_arr(parser.parse_args().metric),
+                        target_tol=get_default_target_tol(parser.parse_args().metric),
+                        only_perform_missing_encodes=False,
+                        db_file_name='encoding_results_hdr_{}.db'.format(parser.parse_args().metric))
+    return parser.parse_args()
+
+
+"""
+---------------------------------------------------------
+4 compress in lossless model and with HDR image 无损高动态
+---------------------------------------------------------
+"""
+
+
+def args_lossless_compress_high_dynamic_range_config():
     parser = argparse.ArgumentParser(prog="lossy_script_compress_parallel",
                                      description="-------------",
                                      epilog='''the end of usage''')
@@ -105,6 +163,19 @@ def args_lossy_compress_high_dynamic_range_config():
     parser.set_defaults(only_perform_missing_encodes=False,
                         db_file_name='encoding_results_{}.db'.format('lossy'))
     return parser.parse_args()
+
+
+"""
+---------------------------------------------------------
+4 compress in lossy model and with HDR image  有损高动态
+---------------------------------------------------------
+"""
+
+"""
+---------------------------------------------------------
+Caculate BD-Rate
+---------------------------------------------------------
+"""
 
 
 def args_BD_config():
@@ -119,17 +190,24 @@ def args_BD_config():
     return parser.parse_args()
 
 
+"""
+---------------------------------------------------------
+Analyze the result
+---------------------------------------------------------
+"""
+
+
 def args_analyze_config():
     parser = argparse.ArgumentParser(prog="analyze_encoding_results",
                                      description="-------------",
                                      epilog='''the end of usage''')
     ## main
-    parser.add_argument('-m', '--metric', type=str, required=True,
+    parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
                         choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes', 'lossy'],
                         help='the target metric ')
-    parser.add_argument('-db', '--db_file_name', type=str,required=True,
+    parser.add_argument('-db', '--db_file_name', type=str, default='encoding_results_lossy.db',
                         help="chose the db file for analyze ")
-    parser.add_argument('-l', '--lossless', type=boolean_string, required=True,
+    parser.add_argument('-l', '--lossless', type=boolean_string, default=True,
                         choices=[True, False],
                         help='analyze the lossless result ?')
     ## miner
@@ -167,5 +245,5 @@ if __name__ == '__main__':
     #                                                                                                      args.target_arr,
     #                                                                                                      args.only_perform_missing_encodes,
     #                                                                                                      args.db_file_name))
-    args = args_lossy_compress_config()
+    args = args_lossless_compress_config()
     print("{}".format(args.num_process))

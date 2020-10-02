@@ -3,6 +3,33 @@ from collections import namedtuple
 
 RateQualityPoint = namedtuple('RateQualityPoint', ['bpp', 'quality', 'target_metric', 'target_value'])
 
+def create_table_if_needed(LOGGER,connection, only_perform_missing_encodes):
+    if only_perform_missing_encodes:
+        if connection.execute(
+                ''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='ENCODES' ''').fetchall()[0][
+            0] == 1:
+            LOGGER.info('Will add missing entries to table')
+        else:
+            LOGGER.error('only_perform_missing_encodes is True but table does not exist')
+            exit(1)
+    else:
+        if connection.execute(
+                ''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='ENCODES' ''').fetchall()[0][
+            0] == 1:
+            LOGGER.error('Table already exists. Exiting . . . ')
+            exit(1)
+        connection.execute(get_create_table_command())
+
+def does_entry_exist(LOGGER, connection, primary_key):
+    res = connection.execute("SELECT * FROM ENCODES WHERE ID='{}'".format(primary_key)).fetchall()
+    if len(res) > 1:
+        LOGGER.error('Found more than one entry with given primary key')
+        exit(1)
+    elif len(res) == 1:
+        return True
+    else:
+        return False
+
 
 def get_quality_dict(elem, list_of_metrics):
     quality = dict()
@@ -23,9 +50,11 @@ def get_rate_quality_points(connection, sub_sampling, codec, source, total_pixel
     # print(repr(rate_quality_points))
     return rate_quality_points
 
+
 def query_for_codec(codec, sub_sampling, target_metric, target_value):
     return "SELECT {},FILE_SIZE_BYTES,VMAF,SOURCE FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
         .format(target_metric.upper(), codec, sub_sampling, target_metric, target_value)
+
 
 def get_unique_sources_sorted(connection):
     unique_sources = connection.execute('SELECT DISTINCT SOURCE FROM ENCODES').fetchall()
@@ -38,8 +67,10 @@ def get_unique_sorted(connection, name):
     unique_sources = [elem[0] for elem in unique_sources]
     return sorted(list(set(unique_sources)))
 
-def get_unique_sorted_with_sub_sampling(connection, name,sub_sampling):
-    unique_sources = connection.execute('SELECT {} FROM ENCODES WHERE SUB_SAMPLING={}'.format(name,sub_sampling)).fetchall()
+
+def get_unique_sorted_with_sub_sampling(connection, name, sub_sampling):
+    unique_sources = connection.execute(
+        'SELECT {} FROM ENCODES WHERE SUB_SAMPLING={}'.format(name, sub_sampling)).fetchall()
     unique_sources = [elem[0] for elem in unique_sources]
     return sorted(list(set(unique_sources)))
 
@@ -54,17 +85,20 @@ def apply_size_check(connection):
             sys.exit(1)
     return total_pixels
 
+
 def apply_checks_before_analyzing(connection, metric_name):
     # target_metrics_in_db = connection.execute('SELECT DISTINCT TARGET_METRIC FROM ENCODES').fetchall()
-    target_metrics_in_db = get_unique_sorted(connection,'TARGET_METRIC')
-    if metric_name not in get_unique_sorted(connection,'TARGET_METRIC'):
-        print('Target metric {} not found in database. Target metrics in db {}.'.format(metric_name, repr(target_metrics_in_db)))
+    target_metrics_in_db = get_unique_sorted(connection, 'TARGET_METRIC')
+    if metric_name not in get_unique_sorted(connection, 'TARGET_METRIC'):
+        print('Target metric {} not found in database. Target metrics in db {}.'.format(metric_name,
+                                                                                        repr(target_metrics_in_db)))
         sys.exit(1)
     total_pixels = apply_size_check(connection)
     # all_metric_values = connection.execute('SELECT DISTINCT TARGET_VALUE FROM ENCODES').fetchall()
     # all_metric_values = [elem[0] for elem in all_metric_values]
-    unique_sorted_metric_values = get_unique_sorted(connection,"TARGET_VALUE")
+    unique_sorted_metric_values = get_unique_sorted(connection, "TARGET_VALUE")
     return unique_sorted_metric_values, total_pixels
+
 
 def get_insert_command():
     """ helper to get DB insert command
