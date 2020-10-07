@@ -1,9 +1,12 @@
 # ImageCodeCompare
 Compare Different Image Code
 
-## ImageCode :
+## Support Format :
 
+#### Preview
+![avatar](ImageFormat_SourceCode/support.png)
 
+#### Detail information
 ImageFormat | Version | ReleaseTime
 :-----: | :-----:| :-----:
 [JPEG](http://www.ijg.org/) | 9d|2020-01-12|
@@ -12,10 +15,8 @@ ImageFormat | Version | ReleaseTime
 [BPG](https://bellard.org/bpg/)|0.9.8  | 2018-04-21
 ...|
 
-#### ToDo :
+## ToDo :
 
-> - Support avif 
+> - video support
 >
-> - Decide final format
->
-> - Test Script
+

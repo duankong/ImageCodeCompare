@@ -23,8 +23,8 @@ def get_default_target_arr(metric):
     if metric == "file_size_bytes":
         print("[@get_default_target_arr] file_size_bytes have no default parameters")
         exit(1)
-    arr['psnr_avg'] = [50]
-    arr['ssim'] = [0.5, 0.8, 0.95]
+    arr['psnr_avg'] = [40]
+    arr['ssim'] = [0.5, 0.8, 0.95,0.99]
     arr['vmaf'] = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 99]
     return arr[metric]
 

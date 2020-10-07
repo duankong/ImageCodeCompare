@@ -30,7 +30,7 @@ import sqlite3
 from utils.UtilsCommon import get_filename_with_temp_folder, make_my_tuple, float_to_int, mkdir_p, listdir_full_path, \
     setup_logging, get_pixel_format_for_metric_computation, get_pixel_format_for_encoding
 from utils.MysqlFun import get_create_table_command, get_insert_command
-from utils.CompressConfig import format_adress, lossy_tuple_codes_high_dynamic_range
+from utils.FormatConfig import format_adress, lossy_tuple_codes_high_dynamic_range
 
 from config import args_lossless_compress_config
 

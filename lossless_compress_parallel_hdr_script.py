@@ -15,7 +15,7 @@ from utils.UtilsCommon import get_filename_with_temp_folder, make_my_tuple, floa
 
 from utils.MysqlFun import create_table_if_needed, get_insert_command, does_entry_exist
 
-from utils.CompressConfig import format_adress, lossless_tuple_codes_high_dynamic_range
+from utils.FormatConfig import format_adress, lossless_tuple_codes_high_dynamic_range
 
 from utils.MetricCaculate import compute_metrics
 
@@ -54,7 +54,7 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
-
+    # 1 JPEG
     if codec in ['jpeg'] and subsampling in ['420', '444']:
         cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
         run_program(LOGGER, cmd)
@@ -62,16 +62,8 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
         cmd = ['/tools/jpeg/jpeg', '-xyz', '-q', param_lossy, '-Q', param_lossy, '-h', '-r', '-s',
                '1x1,2x2,2x2' if subsampling == '420' else '1x1,1x1,1x1',
-               get_filename_with_temp_folder(temp_folder, 'source.ppm'),
-               encoded_file]
+               get_filename_with_temp_folder(temp_folder, 'source.ppm'), encoded_file]
         jpeg_encode_helper(LOGGER, codec, cmd, encoded_file, temp_folder)
-
-        # cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling), source_yuv]
-        # run_program(LOGGER, cmd)
-        #
-        # cmd = ['ffmpeg', '-y', '-i', encoded_file, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling),
-        #        decoded_yuv]
-        # run_program(LOGGER, cmd)
 
         cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'source.ppm'), '-interlace', 'plane',
                '-sampling-factor', '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
@@ -80,81 +72,57 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
         cmd = ['convert', get_filename_with_temp_folder(temp_folder, 'decoded.ppm'), '-interlace', 'plane',
                '-sampling-factor', '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
         run_program(LOGGER, cmd)
+    # 2 KAKADU
+    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420', '444']:
 
-    elif codec == "webp" and subsampling in ['420']:
-
-        decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decode.ppm')
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
-
-        cmd = ['{}/cwebp'.format(FROM.webp), '-z', '6', '-quiet', '-lossless', image, '-o', encoded_file]
-        run_program(LOGGER, cmd)
-
-        cmd = ['{}/dwebp'.format(FROM.webp), encoded_file, '-quiet', '-nofancy', '-ppm', '-o', decoded_ppm]
-        run_program(LOGGER, cmd)
-
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling), source_yuv]
-        run_program(LOGGER, cmd)
-
-        cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling),
-               decoded_yuv]
-        run_program(LOGGER, cmd)
-
-        #
-        # cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:2:0', source_yuv]
-        # run_program(LOGGER, cmd)
-        #
-        # cmd = ['convert', decoded_ppm, '-interlace', 'plane', '-sampling-factor', '4:2:0', decoded_yuv]
-        # run_program(LOGGER, cmd)
-
-
-
-    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling in ['420']:
-
-        source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '420'))
+        source_yuv = get_filename_with_temp_folder(temp_folder,
+                                                   'kakadu_{}x{}_{}_{}_{}.yuv'.format(width, height, '60', '16b',
+                                                                                      subsampling))
 
         encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper_16bit(LOGGER, image, subsampling, temp_folder,
                                                                            source_yuv, param_lossy, codec)
 
-    elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling == '444':
-
-        use_ppm_source = False
-
-        if use_ppm_source:
-            source_ppm = get_filename_with_temp_folder(temp_folder, 'source.ppm')
-            decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
-
-            cmd = ['convert', image, source_ppm]
-            run_program(LOGGER, cmd)
-
-            encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
-            cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i', source_ppm,
-                   '-o', encoded_file, '-rate', '-', '"Ssampling={1,1}"', '-precise', '-tolerance', '0']
-            if codec == 'kakadu-mse':
-                cmd[-4:-4] = ['-no_weights']
-            run_program(LOGGER, cmd)  # not sure whether yuv444 is being coded in the codestream
-
-            cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
-                   '-o', decoded_ppm]
-            run_program(LOGGER, cmd)
-
-            cmd = ['convert', source_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
-            run_program(LOGGER, cmd)
-
-            cmd = ['convert', decoded_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
-            run_program(LOGGER, cmd)
-        else:
-            source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '444'))
-
-            encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper_16bit(LOGGER, image, subsampling, temp_folder,
-                                                                               source_yuv,
-                                                                               param_lossy, codec)
-
-    elif codec == 'openjpeg' and subsampling in ['420']:
+    # elif codec in ['kakadu-mse', 'kakadu-visual'] and subsampling == '444':
+    #
+    #     use_ppm_source = False
+    #
+    #     if use_ppm_source:
+    #         source_ppm = get_filename_with_temp_folder(temp_folder, 'source.ppm')
+    #         decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
+    #
+    #         cmd = ['convert', image, source_ppm]
+    #         run_program(LOGGER, cmd)
+    #
+    #         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
+    #         cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_compress', '-quiet', '-i', source_ppm,
+    #                '-o', encoded_file, '-rate', '-', '"Ssampling={1,1}"', '-precise', '-tolerance', '0']
+    #         if codec == 'kakadu-mse':
+    #             cmd[-4:-4] = ['-no_weights']
+    #         run_program(LOGGER, cmd)  # not sure whether yuv444 is being coded in the codestream
+    #
+    #         cmd = ['/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602/kdu_expand', '-quiet', '-i', encoded_file,
+    #                '-o', decoded_ppm]
+    #         run_program(LOGGER, cmd)
+    #
+    #         cmd = ['convert', source_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
+    #         run_program(LOGGER, cmd)
+    #
+    #         cmd = ['convert', decoded_ppm, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
+    #         run_program(LOGGER, cmd)
+    #     else:
+    #         source_yuv = get_filename_with_temp_folder(temp_folder, 'kakadu_{}x{}_{}.yuv'.format(width, height, '444'))
+    #
+    #         encoded_file, decoded_yuv, source_yuv = kakadu_encode_helper_16bit(LOGGER, image, subsampling, temp_folder,
+    #                                                                            source_yuv,
+    #                                                                            param_lossy, codec)
+    # 3 OPENJPEG
+    elif codec == 'openjpeg' and subsampling in ['420', '444']:
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
-        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:2:0', source_yuv]
+        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
         run_program(LOGGER, cmd)
 
         cmd = ['cp', source_yuv, source_raw]
@@ -162,76 +130,19 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
 
         # COMPRESS and DECODE
         cmd = ['opj_compress', '-i', source_raw, '-o', encoded_file, '-F',
-               '%s,%s,%s,%s,u@1x1:2x2:2x2' % (width, height, 1, 16),
+               '{},{},{},{},u@{}'.format(width, height, 1, 16,
+                                         '1x1:2x2:2x2' if subsampling == '420' else '1x1:1x1:1x1'),
                '-r', '{}'.format(param_lossy)]
         run_program(LOGGER, cmd)
         cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
         run_program(LOGGER, cmd)
         # decode YUV
 
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:2:0', decoded_yuv]
+        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor',
+               '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
         run_program(LOGGER, cmd)
 
-
-    elif codec == 'openjpeg' and subsampling == '444':
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
-        decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
-        source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
-
-        cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:4:4', source_yuv]
-        run_program(LOGGER, cmd)
-
-        cmd = ['cp', source_yuv, source_raw]
-        run_program(LOGGER, cmd)
-
-        # param is PSNR value [dB]
-        cmd = ['opj_compress', '-i', source_raw, '-F', '%s,%s,%s,%s,u@1x1:1x1:1x1' % (width, height, 1, 16), '-r'
-            , '{}'.format(param_lossy), '-o', encoded_file]
-        run_program(LOGGER, cmd)
-
-        cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
-        run_program(LOGGER, cmd)
-
-        cmd = ['convert', decoded_file, '-interlace', 'plane', '-sampling-factor', '4:4:4', decoded_yuv]
-        run_program(LOGGER, cmd)
-
-
-    elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444']:
-        param = float_to_int(param_lossy)
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling), source_yuv]
-        run_program(LOGGER, cmd)
-
-        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
-        cmd = ['aomenc', '--i420' if subsampling == '420' else '--i444',
-               '--width={}'.format(width), '--height={}'.format(height),
-               '--ivf', '--cpu-used=1', '--end-usage=q', '--lossless=1',
-               '--cq-level={}'.format(param), '--min-q={}'.format(param), '--max-q={}'.format(param),
-               '--passes=2', '--lag-in-frames=0', '--frame-boost=0', '--disable-warning-prompt',
-               '--output={}'.format(encoded_file), source_yuv]
-        if codec == 'avif-ssim':
-            cmd[-2:-2] = ['--tune=ssim']
-        run_program(LOGGER, cmd)
-
-        cmd = ['aomdec', '--i420' if subsampling == '420' else '--rawvideo', '-o', decoded_yuv, encoded_file]
-        run_program(LOGGER, cmd)
-
-    # elif codec in ['bpg'] and subsampling in ['420', '444']:
-    #     cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling), source_yuv]
-    #     run_program(LOGGER, cmd)
-    #     # bpg encode
-    #     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
-    #     cmd = ['/tools/libbpg-master/bpgenc', '-lossless', '-f', '420' if subsampling == '420' else '444', '-b','12',
-    #            '-m', '9', '-o', encoded_file, image]
-    #     run_program(LOGGER, cmd)
-    #     # bpg decoder
-    #     decoded_file = get_filename_with_temp_folder(temp_folder, 'bpg_decode.ppm')
-    #     cmd = ['/tools/libbpg-master/bpgdec', '-b', '12', '-o', decoded_file, encoded_file]
-    #     run_program(LOGGER, cmd)
-    #     # convert
-    #     cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling),
-    #            decoded_yuv]
-    #     run_program(LOGGER, cmd)
-
+    # 4 FLIF
     elif codec in ['flif'] and subsampling in ['420', '444']:
         # flif encode
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.flif')
@@ -251,19 +162,11 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
         cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling),
                decoded_yuv]
         run_program(LOGGER, cmd)
-
+    # 7 HEVC
     elif codec == 'hevc' and subsampling in ['420', '444']:
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format_for_encoding_16bit(subsampling), source_yuv]
         my_exec(LOGGER, cmd)
-
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
-        # cmd = ['{}/TAppEncoderStatic'.format(FROM.hevc),
-        #        '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_main_rext.cfg', '--CostMode=lossless',
-        #        '-wdt', width, '-hgt', height, '--InputBitDepth=8', '--InputChromaFormat={}'.format(subsampling),
-        #        '--ConformanceWindowMode=1', '--TransquantBypassEnable=1', '--CUTransquantBypassFlagForce=1',
-        #        '--ExtendedPrecision=true','--HighPrecisionPredictionWeighting=true'
-        #        '--FrameRate=6', '--FramesToBeEncoded=1',
-        #        '-i', source_yuv, '-b', encoded_file, '-o', '/dev/null']
         cmd = ['{}/TAppEncoderHighBitDepthStatic'.format(FROM.highbithevc),
                '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_high_throughput_rext.cfg',
                '-wdt', width, '-hgt', height,
@@ -287,13 +190,10 @@ def f(image, width, height, temp_folder, codec, subsampling, param_lossy):
                '-b', encoded_file,
                '-o', decoded_yuv]
         my_exec(LOGGER, cmd)
-
     else:
         raise RuntimeError('Unsupported codec and subsampling ' + codec + ' / ' + subsampling)
-
     stats = compute_metrics(LOGGER, source_yuv, decoded_yuv, width, height, 16, temp_folder, subsampling)
     stats['file_size_bytes'] = os.path.getsize(encoded_file)
-
     return stats, encoded_file
 
 

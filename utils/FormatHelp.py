@@ -2,7 +2,7 @@ import ntpath
 import glob
 import os
 from .RunCmd import run_program, my_exec
-from .CompressConfig import format_adress
+from .FormatConfig import format_adress
 from .UtilsCommon import get_filename_with_temp_folder, get_pixel_format_for_encoding, \
     get_pixel_format_for_encoding_16bit
 

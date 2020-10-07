@@ -8,8 +8,8 @@ db_file_name="encoding_results_${metric}.db"
 
 ## COMPRESSION
 cd /image_test/
-python3 /code/compress_parallel_hdr_script.py \
---num_process 4 \
+python3 /code/compress_parallel_script.py \
+--num_process 8 \
 #--metric ${metric} \
 #--db_file_name=${db_file_name} \
 

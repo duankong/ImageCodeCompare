@@ -134,8 +134,10 @@ def main():
         for codec in codecs:
             if codec not in baseline_codec and results_quality[codec][0] < float("inf"):
                 marker_num += 1
-                plt.plot(results_bpp[codec], results_quality[codec], linewidth=2.0, color=color_list[marker_num],
-                         marker=marker_list[marker_num], label=codec)
+                plt.plot(results_bpp[codec], results_quality[codec], linewidth=2.0,
+                         # color=color_list[marker_num],
+                         # marker=marker_list[marker_num],
+                         label=codec)
         plt.legend(loc='lower right')
         plt.grid()
         plt.xlabel('bit per pixel [bpp]')
@@ -143,7 +145,6 @@ def main():
         plt.title('{} subsampling, using metric {}'.format(sub_sampling, metric_name.upper()))
         plt.tight_layout()
         fig.savefig('{}_{}_{}.png'.format(sub_sampling, metric_name, ntpath.basename(db_file_name)))
-
 
 if __name__ == '__main__':
     main()

@@ -92,8 +92,8 @@ RUN mkdir -p /tools && \
     make final
 
 
-### AVIF
-RUN echo " ====================  AVIF --- https://aomedia.org/ ==================== "
+### AOM
+RUN echo " ====================  aom --- https://aomedia.org/ ==================== "
 
 RUN     buildDeps="aom" && \
         pacman -Syu --noconfirm ${buildDeps}
@@ -177,6 +177,7 @@ RUN     DIR=/tmp/vmaf && \
         python3 setup.py install
 
 ## HEVC (HM)
+RUN     echo " ====================  HEVC(HM) --- svn_HEVCSoftware/HM-16.20+SCM-8.8  ==================== "
 RUN     pacman -Sy --noconfirm hm svn
 
 RUN     cd /tools && \
@@ -186,4 +187,31 @@ COPY    makefile.base  /tools/HM-16.20+SCM-8.8/build/linux/common
 
 RUN     cd  /tools/HM-16.20+SCM-8.8/build/linux && \
         make release_highbitdepth
+
+# LIBAOM
+RUN     echo " ====================   LIBAVIF  ==================== "
+
+# Install nasm 2.14 ninja
+RUN     buildDeps="ninja \
+                   nasm" && \
+        pacman -Sy --noconfirm ${buildDeps}
+
+
+# AVIFENC
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        git clone https://github.com/AOMediaCodec/libavif
+
+COPY    aom-refs_tags_v2.0.0.tar.gz /tools/libavif/ext
+
+RUN     cd /tools/libavif/ext && \
+        mkdir /tools/libavif/ext/aom && \
+        tar xvzf  aom-refs_tags_v2.0.0.tar.gz -C aom && \
+        cd aom && mkdir build.libavif && cd build.libavif && \
+        cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_DOCS=0 -DENABLE_EXAMPLES=0 -DENABLE_TESTDATA=0 -DENABLE_TESTS=0 -DENABLE_TOOLS=0 .. && \
+        ninja && \
+        cd /tools/libavif && \
+        mkdir build && cd build && \
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DAVIF_CODEC_AOM=ON -DAVIF_LOCAL_AOM=ON -DAVIF_CODEC_DAV1D=OFF -DAVIF_LOCAL_DAV1D=OFF -DAVIF_CODEC_RAV1E=OFF -DAVIF_LOCAL_RAV1E=OFF -DAVIF_CODEC_LIBGAV1=OFF -DAVIF_LOCAL_LIBGAV1=OFF -DAVIF_BUILD_TESTS=1 -DAVIF_BUILD_APPS=1 && \
+        ninja
 
