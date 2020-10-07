@@ -6,16 +6,16 @@
 #
 #
 
-FROM archlinux:20200705 AS base
+FROM    archlinux:20200705 AS base
 
 WORKDIR     /image_test          
 
 # Start
 RUN     echo " ====================  START  ==================== "
 
-COPY mirrorlist /etc/pacman.d/
-COPY pacman.conf /etc/
-COPY bash.bashrc /etc/
+COPY    mirrorlist /etc/pacman.d/
+COPY    pacman.conf /etc/
+COPY    bash.bashrc /etc/
 
 RUN     pacman -Sy && \
         pacman -Syu --noconfirm && \
@@ -44,126 +44,15 @@ RUN     buildDeps="wget \
         pacman -S --noconfirm ${buildDeps} && \
        	buildPacket="scikit-image" &&\
        	pip install ${buildPacket}
-
-
-### JPEG2000
-RUN echo " ====================  JPEG2000 --- Kakadu  ==================== "
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O kakadu.zip https://kakadusoftware.com/wp-content/uploads/2020/06/KDU805_Demo_Apps_for_Linux-x86-64_200602.zip && \
-    unzip kakadu.zip -d kakadu && \
-    rm -f kakadu.zip
-
-ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
-
-### JPEG
-RUN echo " ====================  JPEG --- Independent JPEG Group  ==================== "
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O jpeg.tar.gz http://www.ijg.org/files/jpegsrc.v9d.tar.gz && \
-    tar  xzvf jpeg.tar.gz  && \
-    rm -f jpeg.tar.gz   && \
-    cd /tools/jpeg-9d   && \
-    ./configure  && \
-    make &&\
-    make test
-
-### WEBP
-RUN echo " ====================  WebP --- Goole  ==================== "
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O libwebp.tar.gz https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.1.0-linux-x86-64.tar.gz  && \
-    tar xvzf libwebp.tar.gz && \
-    rm -f libwebp.tar.gz
-
-### JPEG-XT
-RUN echo " ====================  JPEG-XT --- Reference from jpeg.org ==================== "
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O jpeg.zip https://jpeg.org/downloads/jpegxt/reference1367abcd89.zip && \
-    unzip jpeg.zip -d jpeg && \
-    rm -f jpeg.zip && \
-    cd jpeg && \
-    ./configure && \
-    make final
-
-
-### AOM
-RUN echo " ====================  aom --- https://aomedia.org/ ==================== "
-
-RUN     buildDeps="aom" && \
-        pacman -Syu --noconfirm ${buildDeps}
-
-
-### BPG
-RUN echo " ====================  BPG --- bellard.org ==================== "
-
-COPY libbpg-master.zip  /tools
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    unzip libbpg-master.zip && \
-    rm -f libbpg-master.zip && \
-    cd /tools/libbpg-master  && \
-    make
-
-### HEIF
-RUN echo " ====================  HEIF --- strukturag/libheif  ==================== "
-
-RUN     buildDeps="x265 \
-                   libde265 \
-                   cbindgen \
-                   autoconf \
-                   gdk-pixbuf2 \
-                   libtool" && \
-        pacman -S --noconfirm ${buildDeps}
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget https://github.com/strukturag/libheif/releases/download/v1.7.0/libheif-1.7.0.tar.gz && \
-    tar xvf libheif-1.7.0.tar.gz && \
-    rm -f libheif-1.7.0.tar.gz && \
-    cd /tools/libheif-1.7.0  && \
-    ./autogen.sh && \
-     autoreconf -ivf &&\
-    mkdir build && \
-    cd build && \
-    ../configure --prefix=/tools/libheif-1.7.0/build && \
-    make && \
-    make install
-
-### OPENJPEG
-RUN echo " ====================  OPENJPEG --- uclouvain/openjpeg  ==================== "
-
-RUN pacman -Sy openjpeg2 --noconfirm
-
-### FLIF
-RUN echo " ====================  FLIF --- http://flif.info/  ==================== "
-
-RUN mkdir -p /tools && \
-    cd /tools && \
-    wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
-    tar xvf flif.tar.gz && \
-    rm -f flif.tar.gz && \
-    cd /tools/FLIF-0.3  && \
-    make flif && \
-    make install
-
+# ============================== VMAFLIB ==============================
 ### VMAF library
-RUN     echo " ====================  VMAFlib --- Netflix/vmaf  ==================== "
-
+RUN     echo " ====================  METRIC || 0 VMAFlib --- Netflix/vmaf  ==================== "
 RUN     buildDeps="meson" && \
         pacman -Sy --noconfirm ${buildDeps}
-
 RUN     buildPacket="Cython \
                      argparse \
                      pypng" &&\
        	pip install ${buildPacket}
-
 RUN     DIR=/tmp/vmaf && \
         mkdir -p ${DIR} && \
         cd ${DIR} && \
@@ -175,35 +64,76 @@ RUN     DIR=/tmp/vmaf && \
         make install && \
         cd python && \
         python3 setup.py install
+# ============================== IMAGE ==============================
+### JPEG(IJG)
+RUN     echo " ====================  IMAGE || 1 JPEG --- Independent JPEG Group  ==================== "
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        wget -O jpeg.tar.gz http://www.ijg.org/files/jpegsrc.v9d.tar.gz && \
+        tar  xzvf jpeg.tar.gz  && \
+        rm -f jpeg.tar.gz   && \
+        cd /tools/jpeg-9d   && \
+        ./configure  && \
+        make &&\
+        make test
+### JPEG-XT
+RUN     echo " ====================  IMAGE || 1 JPEG --- JPEG-XT --- Reference from jpeg.org  ==================== "
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        wget -O jpeg.zip https://jpeg.org/downloads/jpegxt/reference1367abcd89.zip && \
+        unzip jpeg.zip -d jpeg && \
+        rm -f jpeg.zip && \
+        cd jpeg && \
+        ./configure && \
+        make final
+### JPEG2000
+RUN     echo " ====================  IMAGE || 2 JPEG2000 --- Kakadu  ==================== "
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        wget -O kakadu.zip https://kakadusoftware.com/wp-content/uploads/2020/06/KDU805_Demo_Apps_for_Linux-x86-64_200602.zip && \
+        unzip kakadu.zip -d kakadu && \
+        rm -f kakadu.zip
+ENV     LD_LIBRARY_PATH=/tools/kakadu/KDU805_Demo_Apps_for_Linux-x86-64_200602
 
-## HEVC (HM)
-RUN     echo " ====================  HEVC(HM) --- svn_HEVCSoftware/HM-16.20+SCM-8.8  ==================== "
-RUN     pacman -Sy --noconfirm hm svn
+### OPENJPEG
+RUN     echo " ====================  IMAGE || 3 OPENJPEG --- uclouvain/openjpeg  ==================== "
+RUN     pacman -Sy openjpeg2 --noconfirm
 
-RUN     cd /tools && \
-        svn checkout https://hevc.hhi.fraunhofer.de/svn/svn_HEVCSoftware/tags/HM-16.20+SCM-8.8/
-
-COPY    makefile.base  /tools/HM-16.20+SCM-8.8/build/linux/common
-
-RUN     cd  /tools/HM-16.20+SCM-8.8/build/linux && \
-        make release_highbitdepth
-
+### FLIF
+RUN     echo " ====================  IMAGE || 4 FLIF --- http://flif.info/  ==================== "
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        wget -O flif.tar.gz  https://github.com/FLIF-hub/FLIF/archive/v0.3.tar.gz  && \
+        tar xvf flif.tar.gz && \
+        rm -f flif.tar.gz && \
+        cd /tools/FLIF-0.3  && \
+        make flif && \
+        make install
+### WEBP
+RUN     echo " ====================  IMAGE || 5 WebP --- Goole  ==================== "
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        wget -O libwebp.tar.gz https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.1.0-linux-x86-64.tar.gz  && \
+        tar xvzf libwebp.tar.gz && \
+        rm -f libwebp.tar.gz
+### BPG
+RUN     echo " ====================  IMAGE || 6 BPG --- bellard.org ==================== "
+COPY    libbpg-master.zip  /tools
+RUN     mkdir -p /tools && \
+        cd /tools && \
+        unzip libbpg-master.zip && \
+        rm -f libbpg-master.zip && \
+        cd /tools/libbpg-master  && \
+        make
 # LIBAOM
-RUN     echo " ====================   LIBAVIF  ==================== "
-
-# Install nasm 2.14 ninja
+RUN     echo " ====================  IMAGE || 9 LIBAVIF  ==================== "
 RUN     buildDeps="ninja \
                    nasm" && \
         pacman -Sy --noconfirm ${buildDeps}
-
-
-# AVIFENC
 RUN     mkdir -p /tools && \
         cd /tools && \
         git clone https://github.com/AOMediaCodec/libavif
-
 COPY    aom-refs_tags_v2.0.0.tar.gz /tools/libavif/ext
-
 RUN     cd /tools/libavif/ext && \
         mkdir /tools/libavif/ext/aom && \
         tar xvzf  aom-refs_tags_v2.0.0.tar.gz -C aom && \
@@ -214,4 +144,52 @@ RUN     cd /tools/libavif/ext && \
         mkdir build && cd build && \
         cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DAVIF_CODEC_AOM=ON -DAVIF_LOCAL_AOM=ON -DAVIF_CODEC_DAV1D=OFF -DAVIF_LOCAL_DAV1D=OFF -DAVIF_CODEC_RAV1E=OFF -DAVIF_LOCAL_RAV1E=OFF -DAVIF_CODEC_LIBGAV1=OFF -DAVIF_LOCAL_LIBGAV1=OFF -DAVIF_BUILD_TESTS=1 -DAVIF_BUILD_APPS=1 && \
         ninja
+# ============================== VIDEO ==============================
+### HEVC (HM)
+RUN     echo " ====================  VIDEO || 1 HEVC(HM) --- svn_HEVCSoftware/HM-16.20+SCM-8.8  ==================== "
+RUN     pacman -Sy --noconfirm hm svn
+RUN     cd /tools && \
+        svn checkout https://hevc.hhi.fraunhofer.de/svn/svn_HEVCSoftware/tags/HM-16.20+SCM-8.8/
+COPY    makefile.base  /tools/HM-16.20+SCM-8.8/build/linux/common
+RUN     cd  /tools/HM-16.20+SCM-8.8/build/linux && \
+        make release_highbitdepth
+### AOM
+RUN     echo " ====================  VIDEO || 2 AOM --- https://aomedia.org/ ==================== "
+RUN     buildDeps="aom" && \
+        pacman -Syu --noconfirm ${buildDeps}
+
+
+
+
+#### HEIF
+#RUN echo " ====================  HEIF --- strukturag/libheif  ==================== "
+#
+#RUN     buildDeps="x265 \
+#                   libde265 \
+#                   cbindgen \
+#                   autoconf \
+#                   gdk-pixbuf2 \
+#                   libtool" && \
+#        pacman -S --noconfirm ${buildDeps}
+#
+#RUN mkdir -p /tools && \
+#    cd /tools && \
+#    wget https://github.com/strukturag/libheif/releases/download/v1.7.0/libheif-1.7.0.tar.gz && \
+#    tar xvf libheif-1.7.0.tar.gz && \
+#    rm -f libheif-1.7.0.tar.gz && \
+#    cd /tools/libheif-1.7.0  && \
+#    ./autogen.sh && \
+#     autoreconf -ivf &&\
+#    mkdir build && \
+#    cd build && \
+#    ../configure --prefix=/tools/libheif-1.7.0/build && \
+#    make && \
+#    make install
+
+
+
+
+
+
+
 
