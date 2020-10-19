@@ -1,15 +1,16 @@
+from collections import defaultdict
+from numpy import mean
 import json
-from .UtilsCommon import get_filename_with_temp_folder, get_pixel_format_for_metric_computation, \
-    get_pixel_format_for_metric_computation_16bit
-from .RunCmd import run_program
+from .UtilsCommon import get_filename_with_temp_folder
+from .ffmpeg_format import get_pixel_format
+from .run_cmd import run_program
 
 
 def compute_vmaf(LOGGER, ref_image, dist_image, width, height, depth, temp_folder, subsampling):
     """ given a pair of reference and distorted images:
         use the ffmpeg libvmaf filter to compute vmaf, vif, ssim, and ms_ssim.
     """
-    pixel_format = get_pixel_format_for_metric_computation(
-        subsampling) if depth == 8 else get_pixel_format_for_metric_computation_16bit(subsampling)
+    pixel_format = get_pixel_format(subsampling, depth)
 
     log_path = get_filename_with_temp_folder(temp_folder, 'stats_vmaf.json')
 
@@ -35,23 +36,15 @@ def compute_psnr(LOGGER, ref_image, dist_image, width, height, depth, temp_folde
         use the ffmpeg psnr filter to compute psnr and mse for each channel.
     """
 
-    pixel_format = get_pixel_format_for_metric_computation(
-        subsampling) if depth == 8 else get_pixel_format_for_metric_computation_16bit(subsampling)
+    pixel_format = get_pixel_format(subsampling, depth)
 
     log_path = get_filename_with_temp_folder(temp_folder, 'stats_psnr.log')
     cmd = ['ffmpeg',
            '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', dist_image,
            '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', ref_image,
            '-lavfi', 'psnr=stats_file=' + log_path, '-f', 'null', '-']
-
     run_program(LOGGER, cmd)
-
-    psnr_dict = dict()
-    psnr_log = open(log_path).read()
-    for stat in psnr_log.rstrip().split(" "):
-        key, value = stat.split(":")
-        if key != "n":
-            psnr_dict[key] = float(value)
+    psnr_dict = get_mean_psnr(log_path)
     return psnr_dict
 
 
@@ -64,6 +57,24 @@ def compute_metrics(LOGGER, ref_image, dist_image, width, height, depth, temp_fo
     stats = vmaf.copy()
     stats.update(psnr)
     return stats
+
+
+def get_mean_psnr(log_path):
+    psnr_dict = defaultdict(list)
+    f = open(log_path)
+    line = f.readline()
+    while line:
+        for stat in line.rstrip().split(" "):
+            key, value = stat.split(":")
+            psnr_dict[key].append(float(value))
+        line = f.readline()
+    f.close()
+
+    psnr_avg = dict()
+    for key, value in psnr_dict.items():
+        psnr_avg[key] = mean(value)
+
+    return psnr_avg
 
 
 if __name__ == '__main__':

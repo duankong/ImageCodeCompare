@@ -1,5 +1,4 @@
 #！/bin/bash
-
 ## init
 sh /code/init.sh
 ## PARAMETER
@@ -7,9 +6,8 @@ metric="ssim"
 db_file_name="encoding_results_${metric}.db"
 
 ## COMPRESSION
-cd /image_test/
-python3 /code/compress_parallel_script.py \
---num_process 8 \
+cd /code/image_test/
+python3 /code/a_compress_8bit_video_parallel_script.py  \
 #--metric ${metric} \
 #--db_file_name=${db_file_name} \
 
@@ -19,4 +17,4 @@ python3 /code/compress_parallel_script.py \
 ## ANALYZE ENCODING RESULT
 #python3 /code/analyze_encoding_results.py --metric ${metric} --db_file_name=${db_file_name} \
 
-cp -r /image_test/ /code/
+#cp -r /image_test/ /code/

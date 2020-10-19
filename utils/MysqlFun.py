@@ -3,6 +3,7 @@ from collections import namedtuple
 
 RateQualityPoint = namedtuple('RateQualityPoint', ['bpp', 'quality', 'target_metric', 'target_value'])
 
+
 def create_table_if_needed(LOGGER,connection, only_perform_missing_encodes):
     if only_perform_missing_encodes:
         if connection.execute(

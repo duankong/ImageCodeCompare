@@ -7,12 +7,13 @@ import statistics
 import datetime
 import multiprocessing
 
-
 """
 ----------------------------------------------
 SHOW_FORMAT
 ----------------------------------------------
 """
+
+
 def get_mean_metric_print(metric_name, metric_value, vmaf_value):
     if metric_name.upper() == 'SSIM':
         return '{:.5f} (mean VMAF {:.2f})'.format(metric_value, vmaf_value)
@@ -30,6 +31,8 @@ def get_print_string(codec, sub_sampling, count, metric_value, file_size, metric
                                                                                                     vmaf_value),
                                                                               file_size)
     return line
+
+
 """
 ----------------------------------------------
 METRIC
@@ -75,32 +78,6 @@ def easy_logging(file_prefix, db_file_name):
     return logger
 
 
-def setup_logging(LOGGER, worker, worker_id):
-    """
-    set up logging for the process calling this function.
-    :param worker: True means it is a worker process from the pool. False means it is the main process.
-    :param worker_id: unique ID identifying the process
-    :return:
-    """
-    for h in list(LOGGER.handlers):
-        LOGGER.removeHandler(h)
-    now = datetime.datetime.now()
-    formatter = logging.Formatter('%(asctime)s - %(threadName)s - %(levelname)s - %(message)s')
-    name = "compression_results_"
-    if worker:
-        name += "worker_"
-        global CONNECTION
-        CONNECTION = None
-    name += str(worker_id) + '_' + now.isoformat() + '.txt'
-    file_log_handler = logging.FileHandler(name)
-    file_log_handler.setFormatter(formatter)
-    LOGGER.addHandler(file_log_handler)
-
-    console_log_handler = logging.StreamHandler()
-    console_log_handler.setFormatter(formatter)
-    LOGGER.addHandler(console_log_handler)
-
-    LOGGER.setLevel('DEBUG')
 
 
 """
@@ -163,61 +140,50 @@ PIXEL_FORMAT
 ----------------------------------------------
 """
 
+#
+#
+# def get_pixel_format_for_encoding(subsampling):
+#     """ helper to set pixel format from subsampling, assuming full range,
+#         for converting source to yuv prior to encoding
+#     """
+#     pixel_format = None
+#     if subsampling == '420':
+#         pixel_format = 'yuvj420p'
+#     elif subsampling == '444':
+#         pixel_format = 'yuvj444p'
+#     else:
+#         raise RuntimeError('Unsupported subsampling ' + subsampling)
+#     return pixel_format
+#
+#
+# def get_pixel_format_for_metric_computation_16bit(subsampling):
+#     """ helper to set pixel format from subsampling, assuming full range,
+#         for metric computation
+#     """
+#     pixel_format = None
+#     if subsampling == '420':
+#         pixel_format = 'yuv420p16le'
+#     elif subsampling == '444':
+#         pixel_format = 'yuv444p16le'
+#     else:
+#         raise RuntimeError('Unsupported subsampling ' + subsampling)
+#     return pixel_format
+#
+#
+# def get_pixel_format_for_encoding_16bit(subsampling):
+#     """ helper to set pixel format from subsampling, assuming full range,
+#         for converting source to yuv prior to encoding
+#     """
+#     pixel_format = None
+#     if subsampling == '420':
+#         pixel_format = 'yuv420p16le'
+#     elif subsampling == '444':
+#         pixel_format = 'yuv444p16le'
+#     else:
+#         raise RuntimeError('Unsupported subsampling ' + subsampling)
+#     return pixel_format
 
-def get_pixel_format_for_metric_computation(subsampling):
-    """ helper to set pixel format from subsampling, assuming full range,
-        for metric computation
-    """
-    pixel_format = None
-    if subsampling == '420':
-        pixel_format = 'yuvj420p'
-    elif subsampling == '444':
-        pixel_format = 'yuvj444p'
-    else:
-        raise RuntimeError('Unsupported subsampling ' + subsampling)
-    return pixel_format
 
-
-def get_pixel_format_for_encoding(subsampling):
-    """ helper to set pixel format from subsampling, assuming full range,
-        for converting source to yuv prior to encoding
-    """
-    pixel_format = None
-    if subsampling == '420':
-        pixel_format = 'yuvj420p'
-    elif subsampling == '444':
-        pixel_format = 'yuvj444p'
-    else:
-        raise RuntimeError('Unsupported subsampling ' + subsampling)
-    return pixel_format
-
-
-def get_pixel_format_for_metric_computation_16bit(subsampling):
-    """ helper to set pixel format from subsampling, assuming full range,
-        for metric computation
-    """
-    pixel_format = None
-    if subsampling == '420':
-        pixel_format = 'yuv420p16le'
-    elif subsampling == '444':
-        pixel_format = 'yuv444p16le'
-    else:
-        raise RuntimeError('Unsupported subsampling ' + subsampling)
-    return pixel_format
-
-
-def get_pixel_format_for_encoding_16bit(subsampling):
-    """ helper to set pixel format from subsampling, assuming full range,
-        for converting source to yuv prior to encoding
-    """
-    pixel_format = None
-    if subsampling == '420':
-        pixel_format = 'yuv420p16le'
-    elif subsampling == '444':
-        pixel_format = 'yuv444p16le'
-    else:
-        raise RuntimeError('Unsupported subsampling ' + subsampling)
-    return pixel_format
 """
 ----------------------------------------------
 OTHERS
@@ -254,6 +220,24 @@ def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampli
         LOGGER.error("ERROR : Tuple too long : " + my_tuple)
     assert len(my_tuple) < 256
     return my_tuple
+
+
+def make_my_tuple_video(LOGGER, image, width, height, frames, codec, metric, target, subsampling, uuid=None):
+    """ make unique tuple for unique directory, primary key in DB, etc.
+    """
+    (filepath, tempfilename) = os.path.split(image)
+    filename, extension = os.path.splitext(tempfilename)
+    my_tuple = '{filename}_{extension}_{width}x{height}x{frames}_{codec}_{metric}_{target}_{subsampling}_' \
+        .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
+                frames=frames, codec=codec, metric=metric, target=target, subsampling=subsampling)
+    if uuid is not None:
+        my_tuple = my_tuple + uuid
+    if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
+        LOGGER.error("ERROR : Tuple too long : " + my_tuple)
+    assert len(my_tuple) < 256
+    return my_tuple
+
+
 
 
 if __name__ == '__main__':
