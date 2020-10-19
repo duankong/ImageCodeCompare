@@ -1,8 +1,9 @@
 /venv
 /.idea
 /__pycache__
+/ImageFormat_SourceCode
 utils/__pycache__/
 image_test/
-images/*
+images/sourceimage
 *.db
-/ImageFormat_SourceCode
+
