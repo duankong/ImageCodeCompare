@@ -2,6 +2,7 @@
 /.idea
 /__pycache__
 /ImageFormat_SourceCode
+/SimpleBak
 utils/__pycache__/
 image_test/
 images/sourceimage
