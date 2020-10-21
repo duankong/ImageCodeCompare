@@ -19,7 +19,7 @@ class cmd_root_path:
 
 class config_file_root_path:
     def __init__(self):
-        self.hevc = '/code/ImageFormat_SourceCode/VIDEO/ISOIEC/HEVC_H265/HM-16.20+SCM-8.8/cfg'
+        self.hevc = '/code/ImageFormat_SourceCode/VIDEO/ISOIEC/HEVC_H265/cfg'
         self.vvc = '/code/ImageFormat_SourceCode/VIDEO/ISOIEC/VVC_H266/cfg'
 
 
