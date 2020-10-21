@@ -1,22 +1,17 @@
-# ImageCodeCompare
-Compare Different Image Code
+# Image/Video Format Compare
+Compare different image format and video format
 
 ## Support Format :
 
-#### Preview
-![avatar](ImageFormat_SourceCode/support.png)
+#### ImageFormat Support
+![avatar](ImageFormat_SourceCode/设置/image_support.png)
 
-#### Detail information
-ImageFormat | Version | ReleaseTime
-:-----: | :-----:| :-----:
-[JPEG](http://www.ijg.org/) | 9d|2020-01-12|
-[JPEG2000](https://kakadusoftware.com/)|8.0.5 | 2020-06-02
-[WebP](https://developers.google.com/speed/webp?hl=en)|1.1.0 | 2020-01-06
-[BPG](https://bellard.org/bpg/)|0.9.8  | 2018-04-21
-...|
+#### VideoFormat Support
+
+![avatar](ImageFormat_SourceCode/设置/video_support.png)
 
 ## ToDo :
 
-> - video support
->
+> - ...
+
 
