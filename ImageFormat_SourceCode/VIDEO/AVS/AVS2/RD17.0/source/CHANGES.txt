@@ -1,0 +1,41 @@
+一、本版本RD17.0相对于RD16.1的修改情况
+1.修正了部分序列运动矢量范围越界的bug：宏Mv_check_bug
+2.解码端增加了是否出现重复序列头的检测机制：宏SEQ_CHANGE_CHECKER(M4010)
+3.修正了MV的clip操作：宏RD1601_FIX_BG(M4041和M4010)           
+4.修正了解码端MV SCALE错误，宏FIELD_HORI_MV_NO_SCALE_FIX
+5.增加了SAO符合性码流的检测，宏SAO_ASSERTION_FIX
+
+二、本版本RD16.1相对于RD16.0的修改情况
+1.修正了加权量化值初始化（WeightQuantEnable）顺序不对的问题：宏RD160_FIX_BG
+2.修正了解码端输出图像的规则和文本不一致的问题：宏RD160_FIX_BG
+3.修正了参考帧缓冲区在满足一定条件下，其输出图像会被覆盖掉的问题：宏FIX_RPS_PICTURE_REMOVE            
+4.修正了VS2010版本中X64编译不通过的问题（更改了工程路径）
+5.修正了Linux下编译不通过的问题（解码端aec.h该为大写AEC.h）
+6.删除了根目录下的bin文件夹，所有工程都放到了source目录下的bin子文件夹
+7.修正了编码端部分MV范围越界的部分问题：宏RD160_FIX_BG
+
+三、RD16.0相对于RD15.0的修改情况
+1.增加了支持7个参考帧：宏FIX_MAX_REF
+2.修正了背景帧编码的问题：宏RD1501_FIX_BG
+3.增加了码流检测机制：宏Check_Bitstream
+4.MV的clip操作：Mv_Clip（M3959）
+5.MV的有效范围检测机制（不超过图像边界64个像素）：MV_Rang （M3959）
+6.修改了一些错误的或者无用的代码：REMOVE_UNUSED
+7.修正了解码端帧输出问题：宏RD1501_FIX_BG （frame_postprocessing()）
+8.增加了可以实现背景帧yuv的改变：B_BACKGROUND_Fix
+9.HDR的色度调整：HDR_CHROMA_DELTA_QP(M3905)
+10.Cmake的应用（M3949）
+另外就是一些小的错误改动，基本都用宏：
+#define Mv_Clip                            1  
+#define REMOVE_UNUSED                      1  
+#define SAO_Height_Fix                     1  
+#define B_BACKGROUND_Fix                   1  
+#define Check_Bitstream                    1  
+#define Wq_param_Clip                      1  
+#define RD1501_FIX_BG                      1  
+#define Mv_Rang                            1  
+
+
+---------------------------------------------------
+余全合  yuquanhe@hisilicon.com
+如有疑问，欢迎各位联系指正！

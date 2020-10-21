@@ -1,0 +1,151 @@
+This software module was originally contributed by the parties as
+listed below in the course of development of the ISO/IEC 18477 (JPEG
+XT) standard for validation and reference purposes:
+
+- University of Stuttgart
+- Accusoft
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+* Neither the name of the <ORGANIZATION> nor the names of its
+  contributors may be used to endorse or promote products derived from this
+  software without specific prior written permission.
+* Redistributed products derived from this software must conform to
+  ISO/IEC 18477 (JPEG XT) except that non-commercial redistribution
+  for research and for furtherance of ISO/IEC standards is permitted.
+  Otherwise, contact the contributing parties for any other
+  redistribution rights for products derived from this software.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+Usage: ./jpeg [options] source target
+default is to decode the jpeg input and write a ppm output
+use -q [1..100] or -p to enforce encoding
+
+-q quality : selects the encoding mode and defines the quality of the base image
+-Q quality : defines the quality for the extension layer
+-quality q : use a profile and part specific weighting between base and extension
+             layer quality
+-profile X : encode according to profile X, X = a,b,c
+             as defined in the JPEG XT standard. Without any parameter,
+             the encoder tries to figure out the profile itself.
+-r         : enable the residual codestream for HDR and lossless
+             coding, requires -q and -Q to define base and
+             enhancement layer quality.
+-r12       : use a 12 bit residual image instead of an 8 bit residual
+             image.
+-rl        : enforce a int-to-int lossless DCT in the residual domain
+             for lossless coding enabled by -Q 100
+-ro        : disable the DCT in the residual domain, quantize spatially for
+             near-lossless coding
+-ldr file  : specifies a separate file containing the base layer
+             for encoding.
+-R bits    : specify refinement bits for the base images.
+             This works like -r but in the DCT domain.
+-rR bits   : specify refinement bits for the residual image.
+-N         : enable noise shaping of the prediction residual
+-l         : enable lossless coding without a residual image by an
+             int-to-int DCT, also requires -c and -q 100 for true lossless
+-c         : disable the RGB to YCbCr decorrelation transformation
+-xyz       : indicates that the HDR image is in the XYZ colorspace
+             note that the image is not *converted* to this space, but
+             is assumed to be encoded in this space.
+-cxyz      : similar to the above, but uses the dedicated C transformation
+             to implement a XYZ colorspace conversion.
+-sp        : use separate LUTs for each component.
+-md        : use the median instead of the center of mass
+             for constructing the inverse TMO of profile C.
+-ct        : use the center of mass instead of the median
+             for constructing the inverse TMO of profile C.
+-sm iter   : use <iter> iterations to smooth out the histogram for
+             inverse-TMO based algorithms. Default is not to smooth
+             the histogram.
+-ncl       : disable clamping of out-of-gamut colors.
+             this is automatically enabled for lossless.
+-h         : optimize the Huffman tables
+-v         : use progressive instead of sequential encoding
+             available for all coding schemes (-r,-a,-l and default)
+-qv        : use a simplified scan pattern for progressive that only
+             separates AC from DC bands and may improve the performance
+-ae factor : define an auto-exposure value for part 7 profile B.
+             By default, this factor is 0.6
+-e exposure: define a manual exposure value for part 7 profile B.
+             Auto-exposure, i.e. not using this parameter, is recommended.
+-g gamma   : define the exponent for the gamma for the LDR domain, or rather, for
+             mapping HDR to LDR. A suggested value is 2.4 for mapping scRGB to sRBG.
+             This option controls the base-nonlinearity that generates the
+             HDR pre-cursor image from the LDR image. It is also used in the
+             absense of -ldr (i.e. no LDR image) to tonemap the HDR input image.
+             Use -g 0 to use an approximate inverse TMO as base-nonlinearity, and
+             for tonemapping with the Reinhard operator if the LDR image is missing.
+-epsn eps  : define the numerator normalizer for profile B encoding,
+             defaults to 1e-7
+-epsd eps  : define the denominator normalizer for profile B endocoding,
+             defaults to 1e-7
+-lr        : encode the residual for profile B log-encoded, not gamma-encoded.
+-gf file   : define the inverse one-point L-nonlinearity on decoding from a file
+             this file contains one (ASCII encoded) digit per line, 256*2^h lines
+             in total, where h is the number of refinement bits. Each line contains
+             an (integer) output value the corresponding input is mapped to.
+-z mcus    : define the restart interval size, zero disables it
+-s WxH,... : define subsampling factors for all components
+             note that these are NOT MCU sizes
+             Default is 1x1,1x1,1x1 (444 subsampling)
+             1x1,2x2,2x2 is the 420 subsampling often used
+-sr WxH,...: define subsampling in the residual domain
+-rs        : encode the residual image in sequential (rather than the modified residual)
+             coding mode
+-rv        : encode the residual image in progressive coding mode
+-ol        : open loop encoding, residuals are based on original, not reconstructed
+-dz        : improved deadzone quantizer, may help to improve the R/D performance
+-qt n      : define the quantization table. The following tables are currently defined:
+             n = 0 the default tables from Annex K of the JPEG standard (default)
+             n = 1 a completely flat table that should be PSNR-optimal
+             n = 2 a MS-SSIM optimized table
+             n = 3 the table suggested by ImageMagick
+             n = 4 a HSV-PSNR optimized table
+             n = 5 the table from Klein, Silverstein and Carney:
+                   Relevance of human vision to JPEG-DCT compression (1992)
+             n = 6 the table from Watson, Taylor, Borthwick:
+                   DCTune perceptual optimization of compressed dental X-Rays (1997)
+             n = 7 the table from Ahumada, Watson, Peterson:
+                   A visual detection model for DCT coefficient quantization (1993)
+             n = 8 the table from Peterson, Ahumada and Watson:
+                   An improved detection model for DCT coefficient quantization (1993)
+-rqt n     : defines the quantization table for the residual stream in the same way
+-al file   : specifies a one-component pgm/pfm file that contains an alpha component
+             or the code will write the alpha component to.
+             This demo code DOES NOT implement compositing of alpha and background
+-am mode   : specifes the mode of the alpha: 1 (regular) 2 (premultiplied) 3 (matte-removal)
+-ab r,g,b  : specifies the matte (background) color for mode 3 as RGB triple
+-ar        : enable residual coding for the alpha channel, required if the
+             alpha channel is larger than 8bpp
+-ar12      : use a 12 bit residual for the alpha channel
+-aR bits   : set refinement bits in the alpha base codestream
+-arR bits  : set refinement bits in the residual alpha codestream
+-aol       : enable open loop coding for the alpha channel
+-adz       : enable the deadzone quantizer for the alpha channel
+-all       : enable lossless DCT for alpha coding
+-alo       : disable the DCT in the residual alpha channel, quantize spatially.
+-aq qu     : specify a quality for the alpha base channel (usually the only one)
+-aQ qu     : specify a quality for the alpha extension layer
+-aqt n     : specify the quantization table for the alpha channel
+-arqt n    : specify the quantization table for residual alpha
+-aquality q: specify a combined quality for both

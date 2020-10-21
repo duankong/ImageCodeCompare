@@ -1,0 +1,24 @@
+@echo off
+setlocal enabledelayedexpansion
+
+REM call :add_txt_extention
+ call :remove_txt_extention
+goto :eof
+
+:add_txt_extention
+for /F %%i in ('dir /B "%~dp0" ^| findstr /V "_*.bat"') do (
+    for /F %%j in ('dir /B "%~dp0%%i" ^| findstr "_*.bat"') do (
+        move "%~dp0%%i\%%j" "%~dp0%%i\%%j.txt" 1>nul
+    )
+)
+goto :eof
+
+:remove_txt_extention
+for /F %%i in ('dir /B "%~dp0" ^| findstr /V "_*.bat"') do (
+    for /F %%j in ('dir /B "%~dp0%%i" ^| findstr "_*.bat"') do (
+        set newname=%~dp0%%i\%%j
+        set newname=!newname:.txt=!
+        move "%~dp0%%i\%%j" "!newname!" 1>nul
+    )
+)
+goto :eof

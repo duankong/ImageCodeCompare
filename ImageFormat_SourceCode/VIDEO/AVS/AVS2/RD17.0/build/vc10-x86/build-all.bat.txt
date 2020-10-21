@@ -1,0 +1,16 @@
+@echo off
+SET dict=%~dp0
+if not exist "%dict%\..\..\source\bin" mkdir  "%dict%\..\..\source\bin"
+
+if "%VS100COMNTOOLS%" == "" (
+  msg "%username%" "Visual Studio 10 not detected"
+  exit 1
+)
+if not exist "RD.sln" (
+  call make-solutions.bat
+)
+if exist "RD.sln" (
+  call "%VS100COMNTOOLS%\..\..\VC\vcvarsall.bat"
+  MSBuild /property:Configuration="Release" RD.sln
+  MSBuild /property:Configuration="Debug" RD.sln
+)
