@@ -211,7 +211,7 @@ COPY    libvpx-1.9.0.zip /tools
 RUN     cd /tools  && \
         unzip libvpx-1.9.0.zip  && \
         cd libvpx-1.9.0 && mkdir build_dk && cd build_dk && \
-        ../configurer --as=nasm && \
+        ../configure --as=nasm && \
         make -j 4
 
 ### SVT-VP9
@@ -220,7 +220,7 @@ COPY    SVT-VP9-0.2.2.zip /tools
 
 RUN     cd /tools  && \
         unzip SVT-VP9-0.2.2.zip  && \
-        cd /tools/SVT-VP9-0.2.2/Build/linux && \
+        cd /tools/SVT-VP9-0.2.2/Build/linux/ && \
         ./build.sh --release -j 4
 ### CLEAR
 RUN     rm -f /tools/*.zip
