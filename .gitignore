@@ -1,8 +1,7 @@
 /venv
 /.idea
 /__pycache__
-/ImageFormat_SourceCode
-/SimpleBak
+/BakFiles
 utils/__pycache__/
 image_test/
 images/sourceimage
