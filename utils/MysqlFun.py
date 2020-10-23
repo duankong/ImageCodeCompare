@@ -4,7 +4,7 @@ from collections import namedtuple
 RateQualityPoint = namedtuple('RateQualityPoint', ['bpp', 'quality', 'target_metric', 'target_value'])
 
 
-def create_table_if_needed(LOGGER,connection, only_perform_missing_encodes):
+def create_table_if_needed(LOGGER, connection, only_perform_missing_encodes):
     if only_perform_missing_encodes:
         if connection.execute(
                 ''' SELECT count(name) FROM sqlite_master WHERE type='table' AND name='ENCODES' ''').fetchall()[0][
@@ -20,6 +20,7 @@ def create_table_if_needed(LOGGER,connection, only_perform_missing_encodes):
             LOGGER.error('Table already exists. Exiting . . . ')
             exit(1)
         connection.execute(get_create_table_command())
+
 
 def does_entry_exist(LOGGER, connection, primary_key):
     res = connection.execute("SELECT * FROM ENCODES WHERE ID='{}'".format(primary_key)).fetchall()
@@ -104,11 +105,11 @@ def apply_checks_before_analyzing(connection, metric_name):
 def get_insert_command():
     """ helper to get DB insert command
     """
-    return '''INSERT INTO ENCODES (ID,SOURCE,WIDTH,HEIGHT,CODEC,CODEC_PARAM,
-    TEMP_FOLDER,TARGET_METRIC,TARGET_VALUE,
+    return '''INSERT INTO ENCODES (ID,SOURCE,WIDTH,HEIGHT,DEPTH,
+    CODEC,CODEC_PARAM,TEMP_FOLDER,TARGET_METRIC,TARGET_VALUE,    
     VMAF,SSIM,MS_SSIM,VIF,MSE_Y,MSE_U,MSE_V,MSE_AVG,PSNR_Y,PSNR_U,PSNR_V,PSNR_AVG,ADM2,
-    SUB_SAMPLING,FILE_SIZE_BYTES,ENCODED_FILE) 
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'''
+    SUB_SAMPLING,FILE_SIZE_BYTES,ENCODED_FILE,BPP,COMPRESS_RATE,FRAMES,SOUCR_FILE_SIZE) 
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'''
 
 
 def get_create_table_command():
@@ -119,6 +120,7 @@ def get_create_table_command():
          SOURCE           TEXT    NOT NULL,
          WIDTH            INT     NOT NULL,
          HEIGHT           INT     NOT NULL,
+         DEPTH            INT     NOT NULL,
          CODEC            TEXT    NOT NULL,
          CODEC_PARAM      REAL    NOT NULL,
          TEMP_FOLDER      TEXT    NOT NULL,
@@ -139,7 +141,11 @@ def get_create_table_command():
          PSNR_AVG         REAL    NOT NULL,
          SUB_SAMPLING     TEXT    NOT NULL,
          FILE_SIZE_BYTES  REAL    NOT NULL,
-         ENCODED_FILE     TEXT    NOT NULL);'''
+         ENCODED_FILE     TEXT    NOT NULL,
+         BPP              REAL    NOT NULL,
+         COMPRESS_RATE    REAL    NOT NULL,
+         FRAMES           INT     NOT NULL,
+         SOUCR_FILE_SIZE  REAL    NOT NULL);'''
 
 
 if __name__ == '__main__':

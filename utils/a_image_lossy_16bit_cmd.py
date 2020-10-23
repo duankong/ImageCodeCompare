@@ -3,7 +3,6 @@ import glob
 import ntpath
 from .dirs_func import get_filename_with_temp_folder
 from .run_cmd import run_program, my_exec
-from .UtilsCommon import float_to_int
 from .ffmpeg_format import get_pixel_format
 from .MetricCaculate import compute_metrics
 from .cmd_root_path import cmd_root_path
@@ -11,7 +10,7 @@ from .cmd_root_path import cmd_root_path
 FROM = cmd_root_path()
 
 
-def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder, subsampling):
+def f_image_lossy_16bit(LOGGER, image, width, height, temp_folder, codec, subsampling, param):
     """
     Method to run an encode with given codec, subsampling, etc. and requested codec parameter like QP or bpp.
     All the commands for encoding, decoding, computing metric, etc. for any given codec should be visible
@@ -31,23 +30,24 @@ def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder,
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
     # 1 JPEG
     if codec in ['jpeg', 'jpeg-mse', 'jpeg-ms-ssim', 'jpeg-im', 'jpeg-hvs-psnr'] and subsampling in ['420', '444']:
+        param=str(int(float(param)))
         source_ppm = get_filename_with_temp_folder(temp_folder, 'source.ppm')
         decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decoded.ppm')
         cmd = ['convert', image, source_ppm]
         run_program(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
         cmd = ['{}/jpeg'.format(FROM.jpeg), '-r', '-h', '-r12',
-               '-q', float_to_int(param), '-Q', float_to_int(param),
+               '-q', param, '-Q',param,
                '-s', '1x1,2x2,2x2' if subsampling == '420' else '1x1,1x1,1x1',
                source_ppm, encoded_file]
         jpeg_encode_helper(LOGGER, codec, cmd, encoded_file, temp_folder)
 
         ffmpeg_use = True
         if ffmpeg_use == True:
-            cmd = ['ffmpeg', '-y', '-i', source_ppm, '-pix_fmt', get_pixel_format(subsampling,'16'),
+            cmd = ['ffmpeg', '-y', '-i', source_ppm, '-pix_fmt', get_pixel_format(subsampling, '16'),
                    source_yuv]
             run_program(LOGGER, cmd)
-            cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt',  get_pixel_format(subsampling,'16'),
+            cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt', get_pixel_format(subsampling, '16'),
                    decoded_yuv]
             run_program(LOGGER, cmd)
         else:
@@ -76,7 +76,7 @@ def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder,
                    '4:2:0' if subsampling == '420' else '4:4:4', source_yuv]
             run_program(LOGGER, cmd)
         else:
-            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'16'),
+            cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '16'),
                    source_yuv]
             run_program(LOGGER, cmd)
         cmd = ['cp', source_yuv, source_raw]
@@ -98,7 +98,7 @@ def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder,
                    '4:2:0' if subsampling == '420' else '4:4:4', decoded_yuv]
             run_program(LOGGER, cmd)
         else:
-            cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling,'16'),
+            cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling, '16'),
                    decoded_yuv]
             run_program(LOGGER, cmd)
     # 4 FLIF
@@ -116,14 +116,14 @@ def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder,
         cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
         run_program(LOGGER, cmd)
         # convert
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'16'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '16'), source_yuv]
         run_program(LOGGER, cmd)
-        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling,'16'),
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling, '16'),
                decoded_yuv]
         run_program(LOGGER, cmd)
     # 7 HEVC
     elif codec == 'hevc' and subsampling in ['420', '444']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'16'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '16'), source_yuv]
         my_exec(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
         cmd = ['{}/TAppEncoderHighBitDepthStatic'.format(FROM.highbithevc),
@@ -168,7 +168,7 @@ def f_image_lossy_16bit(LOGGER, param, codec, image, width, height, temp_folder,
 
 
 def kakadu_encode_helper(LOGGER, image, subsampling, temp_folder, source_yuv, param, codec):
-    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'16'), source_yuv]
+    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '16'), source_yuv]
     my_exec(LOGGER, cmd)
 
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')
@@ -216,6 +216,9 @@ def jpeg_encode_helper(LOGGER, codec, cmd, encoded_file, temp_folder):
 
     cmd = ['/tools/jpeg/jpeg', encoded_file, get_filename_with_temp_folder(temp_folder, 'decoded.ppm')]
     run_program(LOGGER, cmd)
+
+
+
 
 
 if __name__ == '__main__':

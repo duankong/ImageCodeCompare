@@ -11,14 +11,14 @@ def tuple_codes_high_dynamic_range():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
         # ## 1 || MAX 83.02 86.03
-        CodecType('jpeg', False, 1, 100, 0.5, '420'),
-        CodecType('jpeg', False, 1, 100, 0.5, '444'),
+        # CodecType('jpeg', False, 1, 100, 0.5, '420'),
+        # CodecType('jpeg', False, 1, 100, 0.5, '444'),
         #
         # CodecType('jpeg-mse', False, 1, 100, 0.5, '420'),
         # CodecType('jpeg-mse', False, 1, 100, 0.5, '444'),
-        #
-        # CodecType('jpeg-ms-ssim', False, 1, 100, 0.5, '420'),
-        # CodecType('jpeg-ms-ssim', False, 1, 100, 0.5, '444'),
+
+        CodecType('jpeg-ms-ssim', False, 1, 100, 0.5, '420'),
+        CodecType('jpeg-ms-ssim', False, 1, 100, 0.5, '444'),
         #
         # CodecType('jpeg-im', False, 1, 100, 0.5, '420'),
         # CodecType('jpeg-im', False, 1, 100, 0.5, '444'),
@@ -70,8 +70,8 @@ def lossless_tuple_codes_high_dynamic_range():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
         # # 1
-        CodecType('jpeg', True, 0, 0, 0, '420'),
-        CodecType('jpeg', True, 0, 0, 0, '444'),
+        # CodecType('jpeg', True, 0, 0, 0, '420'),
+        # CodecType('jpeg', True, 0, 0, 0, '444'),
         # # 2
         # CodecType('kakadu-mse', True, 0, 0, 0, '420'),
         # CodecType('kakadu-mse', True, 0, 0, 0, '444'),
@@ -82,8 +82,8 @@ def lossless_tuple_codes_high_dynamic_range():
         # CodecType('openjpeg', True, 0, 0, 0, '420'),
         # CodecType('openjpeg', True, 0, 0, 0, '444'),
         # # # 4
-        # CodecType('flif', True, 0, 0, 0, '420'),
-        # CodecType('flif', True, 0, 0, 0, '444'),
+        CodecType('flif', True, 0, 0, 0, '420'),
+        CodecType('flif', True, 0, 0, 0, '444'),
         # # # 5
         # CodecType('webp', True, 0, 0, 0, '420'),# not support 16bit
         # CodecType('webp', True, 0, 0, 0, '444'),# not support 444

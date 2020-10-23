@@ -1,7 +1,6 @@
 import os
 from .dirs_func import get_filename_with_temp_folder
 from .run_cmd import run_program, my_exec
-from .UtilsCommon import float_to_int
 from .MetricCaculate import compute_metrics
 from .cmd_root_path import cmd_root_path, config_file_root_path
 from .ffmpeg_format import get_pixel_format
@@ -39,9 +38,18 @@ def f_video_lossly_8bit(LOGGER, codec, yuv_status, param, temp_folder):
     my_exec(LOGGER, cmd)
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
+    if codec in ['avc'] and subsampling in ['420', '444']:
+        param = str(int(float(param)))
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mp4')
+        cmd = ['ffmpeg', '-s', '{}x{}'.format(width, height), '-pix_fmt', get_pixel_format(subsampling, depth),
+               '-i', source_yuv, '-c:v', 'libx264',
+               '-crf', param, encoded_file, '-y']
+        run_program(LOGGER, cmd)
+        cmd = ['ffmpeg', ' -i', encoded_file,'-y', decoded_yuv]
+        run_program(LOGGER, cmd)
 
     # 1 HEVC
-    if codec in ['hevc'] and subsampling in ['420', '444']:
+    elif codec in ['hevc'] and subsampling in ['420', '444']:
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
         cmd = ['{}/TAppEncoderStatic'.format(FORM.hevc),
                # '-c', '/tools/HM-16.20+SCM-8.8/cfg/encoder_intra_high_throughput_rext.cfg',
@@ -92,7 +100,7 @@ def f_video_lossly_8bit(LOGGER, codec, yuv_status, param, temp_folder):
         my_exec(LOGGER, cmd)
     # 3 AVS3
     elif codec in ['avs3'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avs3')
         cmd = ['{}/uavs3enc'.format(FORM.avs3enc),
                '--config', '{}/config.cfg'.format('/code/build'),
@@ -113,7 +121,7 @@ def f_video_lossly_8bit(LOGGER, codec, yuv_status, param, temp_folder):
         run_program(LOGGER, cmd)
     # 4 AOM
     elif codec in ['aom-mse', 'aom-ssim'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.ivf')
         cmd = ['aomenc', '--i420' if subsampling == '420' else '--i444',
                '--width={}'.format(width), '--height={}'.format(height),
@@ -136,7 +144,7 @@ def f_video_lossly_8bit(LOGGER, codec, yuv_status, param, temp_folder):
         run_program(LOGGER, cmd)
     # 5 rav1e
     elif codec in ['rav1e-Psychovisual', 'rav1e-Psnr'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
         decoded_yuv = get_filename_with_temp_folder(temp_folder, '{}x{}x{}.yuv'.format(width, height, frames))
         y4msouce = get_filename_with_temp_folder(temp_folder, 'souce.y4m')
         cmd = ['ffmpeg', '-s', '{}x{}'.format(width, height), '-pix_fmt', get_pixel_format(subsampling, depth), '-i',
@@ -195,7 +203,7 @@ def f_video_lossly_8bit(LOGGER, codec, yuv_status, param, temp_folder):
     # 7 VP8
     elif codec in ['vp8-ssim', 'vp8-psnr', 'vp9-ssim', 'vp9-psnr'] and subsampling in ['420', '444']:
         info = codec.split('-')
-        param = float_to_int(param)
+        param = str(int(float(param)))
         encoded_file = get_filename_with_temp_folder(temp_folder, '{}.ivf'.format(codec))
         decoded_yuv = get_filename_with_temp_folder(temp_folder, '{}x{}x{}.yuv'.format(width, height, frames))
         cmd = ['{}/vpxenc'.format(FORM.vpx),

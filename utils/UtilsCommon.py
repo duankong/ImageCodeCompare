@@ -7,6 +7,8 @@ import statistics
 import datetime
 import multiprocessing
 
+
+
 """
 ----------------------------------------------
 SHOW_FORMAT
@@ -78,8 +80,6 @@ def easy_logging(file_prefix, db_file_name):
     return logger
 
 
-
-
 """
 ----------------------------------------------
 DICTIONARY
@@ -136,59 +136,12 @@ def remove_exist_file(temp_folder, filename, LOGGER):
 
 """
 ----------------------------------------------
-PIXEL_FORMAT
-----------------------------------------------
-"""
-
-#
-#
-# def get_pixel_format_for_encoding(subsampling):
-#     """ helper to set pixel format from subsampling, assuming full range,
-#         for converting source to yuv prior to encoding
-#     """
-#     pixel_format = None
-#     if subsampling == '420':
-#         pixel_format = 'yuvj420p'
-#     elif subsampling == '444':
-#         pixel_format = 'yuvj444p'
-#     else:
-#         raise RuntimeError('Unsupported subsampling ' + subsampling)
-#     return pixel_format
-#
-#
-# def get_pixel_format_for_metric_computation_16bit(subsampling):
-#     """ helper to set pixel format from subsampling, assuming full range,
-#         for metric computation
-#     """
-#     pixel_format = None
-#     if subsampling == '420':
-#         pixel_format = 'yuv420p16le'
-#     elif subsampling == '444':
-#         pixel_format = 'yuv444p16le'
-#     else:
-#         raise RuntimeError('Unsupported subsampling ' + subsampling)
-#     return pixel_format
-#
-#
-# def get_pixel_format_for_encoding_16bit(subsampling):
-#     """ helper to set pixel format from subsampling, assuming full range,
-#         for converting source to yuv prior to encoding
-#     """
-#     pixel_format = None
-#     if subsampling == '420':
-#         pixel_format = 'yuv420p16le'
-#     elif subsampling == '444':
-#         pixel_format = 'yuv444p16le'
-#     else:
-#         raise RuntimeError('Unsupported subsampling ' + subsampling)
-#     return pixel_format
-
-
-"""
-----------------------------------------------
 OTHERS
 ----------------------------------------------
 """
+
+
+
 
 
 def decode(value):
@@ -199,21 +152,18 @@ def decode(value):
     return value
 
 
-def float_to_int(param):
-    """help to convert param to int
-    """
-    return str(int(float(param)))
 
 
-def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling, uuid=None):
+
+def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling,param, uuid=None):
     """ make unique tuple for unique directory, primary key in DB, etc.
     """
     (filepath, tempfilename) = os.path.split(image)
     filename, extension = os.path.splitext(tempfilename)
-    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_' \
+    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_{para}' \
         .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
                 codec=codec,
-                metric=metric, target=target, subsampling=subsampling)
+                metric=metric, target=target, subsampling=subsampling,para=param)
     if uuid is not None:
         my_tuple = my_tuple + uuid
     if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
@@ -236,8 +186,6 @@ def make_my_tuple_video(LOGGER, image, width, height, frames, codec, metric, tar
         LOGGER.error("ERROR : Tuple too long : " + my_tuple)
     assert len(my_tuple) < 256
     return my_tuple
-
-
 
 
 if __name__ == '__main__':

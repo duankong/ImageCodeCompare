@@ -1,9 +1,9 @@
 import os
 from .dirs_func import get_filename_with_temp_folder
 from .run_cmd import run_program, my_exec
-from .UtilsCommon import float_to_int
 from .MetricCaculate import compute_metrics
 from .cmd_root_path import cmd_root_path, config_file_root_path
+from .ffmpeg_format import get_pixel_format
 
 FORM = cmd_root_path()
 config_file = config_file_root_path()
@@ -40,8 +40,19 @@ def f_video_lossless_8bit(LOGGER, codec, yuv_status, param, temp_folder):
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
 
-    # 1 HEVC
-    if codec == 'hevc' and subsampling in ['420', '444']:
+    # 0 AVC
+    if codec in ['avc'] and subsampling in ['420', '444']:
+        encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mp4')
+        cmd = ['ffmpeg', '-s', '{}x{}'.format(width, height), '-pix_fmt', get_pixel_format(subsampling, depth), '-i',
+               source_yuv, '-c:v', 'libx264',
+               # '-preset', 'veryslow',
+               '-crf', '0', encoded_file]
+        run_program(LOGGER, cmd)
+        cmd = ['ffmpeg', ' -i', encoded_file, decoded_yuv]
+        run_program(LOGGER, cmd)
+
+    # ## 1 HEVC
+    elif codec == 'hevc' and subsampling in ['420', '444']:
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
         cmd = ['{}/TAppEncoderStatic'.format(FORM.hevc),
@@ -93,7 +104,7 @@ def f_video_lossless_8bit(LOGGER, codec, yuv_status, param, temp_folder):
         my_exec(LOGGER, cmd)
     # 4 AOM
     elif codec in ['aom-mse', 'aom-ssim'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.ivf')
         cmd = ['aomenc', '--i420' if subsampling == '420' else '--i444',
                '--width={}'.format(width), '--height={}'.format(height),
@@ -117,7 +128,7 @@ def f_video_lossless_8bit(LOGGER, codec, yuv_status, param, temp_folder):
     # 8 VP9
     elif codec in ['vp9-ssim', 'vp9-psnr'] and subsampling in ['420', '444']:
         info = codec.split('-')
-        param = float_to_int(param)
+        param = str(int(float(param)))
         encoded_file = get_filename_with_temp_folder(temp_folder, '{}.ivf'.format(codec))
         decoded_yuv = get_filename_with_temp_folder(temp_folder, '{}x{}x{}.yuv'.format(width, height, frames))
         cmd = ['{}/vpxenc'.format(FORM.vpx),

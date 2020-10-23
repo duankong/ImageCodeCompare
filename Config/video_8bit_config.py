@@ -10,6 +10,9 @@ from collections import namedtuple
 def video_tuple_codes():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
+        # ## 0 AVC
+        CodecType('avc', True, 0, 81, 0.5, '420'),
+        CodecType('avc', True, 0, 81, 0.5, '444'),
         # ## 1 HEVC
         # CodecType('hevc', True, 0, 51, 0.5, '420'),
         # CodecType('hevc', True, 0, 51, 0.5, '444'),
@@ -19,8 +22,8 @@ def video_tuple_codes():
         # ## 3 AVS3
         # CodecType('avs3', True, 0, 63, 1, '420'),# 只支持 8bit 有损 420
         # ## 4 AOM
-        CodecType('aom-mse', True, 1, 63, 1, '420'),# 8 to 12
-        CodecType('aom-mse', True, 1, 63, 1, '444'),# 8 to 12
+        # CodecType('aom-mse', True, 1, 63, 1, '420'),# 8 to 12
+        # CodecType('aom-mse', True, 1, 63, 1, '444'),# 8 to 12
         #
         # CodecType('aom-ssim', True, 1, 63, 1, '420'),# 8 to 12
         # CodecType('aom-ssim', True, 1, 63, 1, '444'),# 8 to 12
@@ -60,6 +63,9 @@ def video_tuple_codes():
 def video_tuple_lossless_codes():
     CodecType = namedtuple('CodecType', ['name', 'inverse', 'param_start', 'param_end', 'ab_tol', 'subsampling'])
     TUPLE_CODECS = (
+        # ## 0
+        CodecType('avc', True, 0, 81, 0.5, '420'),
+        CodecType('avc', True, 0, 81, 0.5, '444'),
         # ## 1 HEVC
         # CodecType('hevc', True, 0, 51, 0.5, '420'),
         # CodecType('hevc', True, 0, 51, 0.5, '444'),
@@ -68,8 +74,8 @@ def video_tuple_lossless_codes():
         # CodecType('vvc', True, 0, 51, 0.5, '444'),
         #
         # # ## 4 AOM
-        CodecType('aom-mse', True, 1, 63, 1, '420'),# 8 to 12
-        CodecType('aom-mse', True, 1, 63, 1, '444'),# 8 to 12
+        # CodecType('aom-mse', True, 1, 63, 1, '420'),# 8 to 12
+        # CodecType('aom-mse', True, 1, 63, 1, '444'),# 8 to 12
         # #
         # CodecType('aom-ssim', True, 1, 63, 1, '420'),# 8 to 12
         # CodecType('aom-ssim', True, 1, 63, 1, '444'),# 8 to 12

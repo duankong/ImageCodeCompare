@@ -3,7 +3,7 @@
 /__pycache__
 /BakFiles
 utils/__pycache__/
-image_test/
+runs/
 images/sourceimage
 *.db
 

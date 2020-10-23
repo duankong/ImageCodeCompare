@@ -32,25 +32,46 @@ WORK_DIR = args.work_dir
 def update_stats(results):
     """ callback function called when a worker process finishes an encoding job with target quality value
     """
-    c, codec, metric, target, quality, encoded_file, file_size_bytes, subsampling, \
-    tuple_minus_uuid, source_image, width, height, temp_folder = results
-    LOGGER.info('<<' + codec.upper() + '>>' + " Param " + str(c) + ", quality "
+    channels = 1
+    param, quality, encoded_file, file_size_bytes, codec_status, im_status = results
+    LOGGER.info('<<' + codec_status['codec'].upper() + '>>' + " Param " + str(param) + ", quality "
                 + repr(quality) + ", encoded_file: " + encoded_file
                 + " size: " + str(file_size_bytes) + " bytes")
-    TOTAL_BYTES[codec + subsampling + metric + str(target)] += os.path.getsize(encoded_file)
-    TOTAL_METRIC[codec + subsampling + metric + str(target)] += quality[metric]
+    TOTAL_BYTES[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
+        codec_status['target'])] += os.path.getsize(encoded_file)
+    TOTAL_METRIC[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
+        codec_status['target'])] += quality[codec_status['metric']]
+
+    SOUCR_FILE_SIZE = int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels * im_status[
+        'depth'] / 8
+
+    BPP = os.path.getsize(encoded_file) * 8.0 / (
+            int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels)
+
+    COMPRESS_RATE = SOUCR_FILE_SIZE / os.path.getsize(encoded_file)
+
+    print(
+        "souce_file_size ={} Bytes BPP = {} Compress_rate = {} frames ={} ".format(SOUCR_FILE_SIZE, BPP, COMPRESS_RATE,
+                                                                                   im_status['frames']))
+
     try:
-        CONNECTION.execute(get_insert_command(), (tuple_minus_uuid, source_image, width, height,
-                                                  codec, c, temp_folder, metric, target,
-                                                  quality['vmaf'], quality['ssim'], quality['ms_ssim'], quality['vif'],
-                                                  quality['mse_y'], quality['mse_u'], quality['mse_v'],
-                                                  quality['mse_avg'],
-                                                  quality['psnr_y'], quality['psnr_u'], quality['psnr_v'],
-                                                  quality['psnr_avg'], quality['adm2'],
-                                                  subsampling, file_size_bytes, encoded_file))
+        CONNECTION.execute(get_insert_command(), (
+            codec_status['tuple_minus_uuid'], im_status['source_image'], im_status['width'],
+            im_status['height'],
+            im_status['depth'],
+            codec_status['codec'], param, im_status['temp_folder'], codec_status['metric'], codec_status['target'],
+            quality['vmaf'], quality['ssim'], quality['ms_ssim'], quality['vif'],
+            quality['mse_y'], quality['mse_u'], quality['mse_v'],
+            quality['mse_avg'],
+            quality['psnr_y'], quality['psnr_u'], quality['psnr_v'],
+            quality['psnr_avg'],
+            quality['adm2'],
+            im_status['subsampling'], file_size_bytes, encoded_file,
+            BPP, COMPRESS_RATE, im_status['frames'], SOUCR_FILE_SIZE
+        ))
         CONNECTION.commit()
     except:
-        print("[=============]ERROR")
+        print("[ update_stats ] ERROR")
         # CONNECTION.rollback()
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
@@ -96,9 +117,18 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
                                            subsampling)
     mkdir_p(temp_folder)
 
+    image_status = dict(
+        [('source_image', yuv_file),
+         ('width', width), ('height', height), ('depth', 8), ('frames', real_frames),
+         ('subsampling', subsampling), ('temp_folder', temp_folder)])
+
+    compress_status = dict(
+        [('metric', metric), ('target', target), ('codec', codec), ('tuple_minus_uuid', tuple_minus_uuid)])
+
     yuv_status = dict(
         [('yuv_file', yuv_file), ('width', width), ('height', height), ('depth', depth), ('frames', real_frames),
          ('subsampling', subsampling)])
+
     LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
                        inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file, width, height, real_frames,
                        subsampling)))
@@ -112,9 +142,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
             last_c = c
 
             if abs(quality[metric] - target) < target_tol:
-                return (
-                    last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
-                    tuple_minus_uuid, ntpath.basename(yuv_file), width, height, temp_folder)
+                return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
             else:
                 if inverse:
                     if quality[metric] < target:
@@ -131,8 +159,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
         last_c = '0'
         quality, encoded_file = f_video_lossless_8bit(LOGGER, codec, yuv_status, last_c, temp_folder)
 
-    return (last_c, codec, metric, target, quality, encoded_file, os.path.getsize(encoded_file), subsampling,
-            tuple_minus_uuid, ntpath.basename(yuv_file), width, height, temp_folder)
+    return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
 
 
 def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol):
@@ -178,7 +205,7 @@ def main_func():
     metric = args.metric
     target_arr = args.target_arr
     target_tol = args.target_tol
-    db_file_name = os.path.join(WORK_DIR,args.db_file_name)
+    db_file_name = os.path.join(WORK_DIR, args.db_file_name)
     num_process = args.num_process
     frames = args.yuv_frames
 

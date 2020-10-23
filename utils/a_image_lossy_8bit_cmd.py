@@ -3,7 +3,6 @@ import glob
 import ntpath
 from .dirs_func import get_filename_with_temp_folder
 from .run_cmd import run_program, my_exec
-from .UtilsCommon import float_to_int
 from .ffmpeg_format import get_pixel_format
 from .MetricCaculate import compute_metrics
 from .cmd_root_path import cmd_root_path
@@ -11,7 +10,7 @@ from .cmd_root_path import cmd_root_path
 FORM = cmd_root_path()
 
 
-def f_image_lossy_8bit(LOGGER, param, codec, image, width, height, temp_folder, subsampling):
+def f_image_lossy_8bit(LOGGER, image, width, height, temp_folder, codec, subsampling, param):
     """
     Method to run an encode with given codec, subsampling, etc. and requested codec parameter like QP or bpp.
     All the commands for encoding, decoding, computing metric, etc. for any given codec should be visible
@@ -37,7 +36,7 @@ def f_image_lossy_8bit(LOGGER, param, codec, image, width, height, temp_folder, 
         cmd = ['convert', image, get_filename_with_temp_folder(temp_folder, 'source.ppm')]
         run_program(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.jpg')
-        cmd = ['{}/jpeg'.format(FORM.jpeg), '-q', float_to_int(param),
+        cmd = ['{}/jpeg'.format(FORM.jpeg), '-q', str(int(float(param))),
                '-s', '1x1,2x2,2x2' if subsampling == '420' else '1x1,1x1,1x1',
                get_filename_with_temp_folder(temp_folder, 'source.ppm'), encoded_file]
         jpeg_encode_helper(LOGGER, codec, cmd, encoded_file, temp_folder)
@@ -151,7 +150,8 @@ def f_image_lossy_8bit(LOGGER, param, codec, image, width, height, temp_folder, 
         my_exec(LOGGER, cmd)
     # 8 AVIF
     elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
+        
         cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
         run_program(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
@@ -168,7 +168,7 @@ def f_image_lossy_8bit(LOGGER, param, codec, image, width, height, temp_folder, 
         run_program(LOGGER, cmd)
     # 9 LIBAVIF
     elif codec in ['avifenc-sp-0', 'avifenc-sp-2', 'avifenc-sp-4', 'avifenc-sp-8'] and subsampling in ['420', '444']:
-        param = float_to_int(param)
+        param = str(int(float(param)))
         min_QP = int(param) - 1
         max_QP = int(param) + 1
         info = codec.split('-')

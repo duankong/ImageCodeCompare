@@ -85,8 +85,8 @@ def lossless_tuple_codes():
         CodecType('jpeg', True, 0, 0, 0, '420'),
         CodecType('jpeg', True, 0, 0, 0, '444'),
         # # # 2
-        # CodecType('kakadu-mse', True, 0, 0, 0, '420'),
-        # CodecType('kakadu-mse', True, 0, 0, 0, '444'),
+        CodecType('kakadu-mse', True, 0, 0, 0, '420'),
+        CodecType('kakadu-mse', True, 0, 0, 0, '444'),
         #
         # CodecType('kakadu-visual', True, 0, 0, 0, '420'),
         # CodecType('kakadu-visual', True, 0, 0, 0, '444'),

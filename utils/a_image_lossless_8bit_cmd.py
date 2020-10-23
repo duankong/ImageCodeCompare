@@ -3,9 +3,7 @@ import glob
 import ntpath
 from .dirs_func import get_filename_with_temp_folder
 from .run_cmd import run_program, my_exec
-from .UtilsCommon import float_to_int
 from .ffmpeg_format import get_pixel_format
-
 from .MetricCaculate import compute_metrics
 from .cmd_root_path import cmd_root_path
 
@@ -65,7 +63,7 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
 
         # cmd = ['convert', image, '-interlace', 'plane', '-sampling-factor', '4:2:0', source_yuv]
         # run_program(LOGGER,cmd)
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
         cmd = ['cp', source_yuv, source_raw]
         run_program(LOGGER, cmd)
@@ -77,14 +75,14 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         cmd = ['opj_decompress', '-i', encoded_file, '-o', decoded_file]
         run_program(LOGGER, cmd)
         # decode YUV
-        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling,'8'), decoded_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling, '8'), decoded_yuv]
         run_program(LOGGER, cmd)
     elif codec == 'openjpeg' and subsampling == '444':
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.j2k')
         decoded_file = get_filename_with_temp_folder(temp_folder, 'decoded.raw')
         source_raw = get_filename_with_temp_folder(temp_folder, 'source.raw')
 
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
 
         cmd = ['cp', source_yuv, source_raw]
@@ -115,25 +113,25 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         cmd = ['/tools/FLIF-0.3/src/flif', '-d', '-o', '-q', '100', encoded_file, decoded_file]
         run_program(LOGGER, cmd)
         # convert
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
-        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling,'8'), decoded_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling, '8'), decoded_yuv]
         run_program(LOGGER, cmd)
     # 5 WEBP
     elif codec == "webp" and subsampling in ['420']:
         decoded_ppm = get_filename_with_temp_folder(temp_folder, 'decode.ppm')
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.webp')
         cmd = ['{}/cwebp'.format(FROM.webp), '-z', '9', '-quiet', '-lossless', image, '-o', encoded_file]
         run_program(LOGGER, cmd)
         cmd = ['{}/dwebp'.format(FROM.webp), encoded_file, '-ppm', '-quiet', '-o', decoded_ppm]
         run_program(LOGGER, cmd)
-        cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt', get_pixel_format(subsampling,'8'), decoded_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_ppm, '-pix_fmt', get_pixel_format(subsampling, '8'), decoded_yuv]
         run_program(LOGGER, cmd)
     # 6 BPG
     elif codec in ['bpg'] and subsampling in ['420', '444']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
         # bpg encode
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.bpg')
@@ -145,11 +143,11 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         cmd = ['/tools/libbpg-master/bpgdec', '-b', '8', '-o', decoded_file, encoded_file]
         run_program(LOGGER, cmd)
         # convert
-        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling,'8'), decoded_yuv]
+        cmd = ['ffmpeg', '-y', '-i', decoded_file, '-pix_fmt', get_pixel_format(subsampling, '8'), decoded_yuv]
         run_program(LOGGER, cmd)
     # 7 HEVC
     elif codec == 'hevc' and subsampling in ['420', '444']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         my_exec(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.hevc')
         cmd = ['{}/TAppEncoderStatic'.format(FROM.hevc),
@@ -163,7 +161,7 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         my_exec(LOGGER, cmd)
     # 8 AVIF
     elif codec in ['avif-mse', 'avif-ssim'] and subsampling in ['420', '444']:
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         run_program(LOGGER, cmd)
 
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
@@ -181,10 +179,10 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
     elif codec in ['avifenc-sp-0', 'avifenc-sp-2', 'avifenc-sp-4', 'avifenc-sp-8'] and subsampling in ['420', '444']:
         info = codec.split('-')
         speed = info[2]
-        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+        cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
         my_exec(LOGGER, cmd)
         source_y4m = get_filename_with_temp_folder(temp_folder, 'source.y4m')
-        cmd = ['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', get_pixel_format(subsampling,'8'),
+        cmd = ['ffmpeg', '-y', '-f', 'rawvideo', '-pix_fmt', get_pixel_format(subsampling, '8'),
                '-s:v', '%s,%s' % (width, height), '-i', source_yuv, source_y4m]
         my_exec(LOGGER, cmd)
         encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.avif')
@@ -196,7 +194,7 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         cmd = ['/tools/libavif/build/avifdec', '--codec', 'aom', encoded_file, decoded_y4m]
         my_exec(LOGGER, cmd)
         # explicitly convert to 420 or 444 depending on the case from the y4m
-        cmd = ['ffmpeg', '-y', '-i', decoded_y4m, '-pix_fmt', get_pixel_format(subsampling,'8'),
+        cmd = ['ffmpeg', '-y', '-i', decoded_y4m, '-pix_fmt', get_pixel_format(subsampling, '8'),
                decoded_yuv]
         my_exec(LOGGER, cmd)
     else:
@@ -232,7 +230,7 @@ def jpeg_encode_helper(LOGGER, codec, cmd, encoded_file, temp_folder):
 
 
 def kakadu_encode_helper(LOGGER, image, subsampling, temp_folder, source_yuv, codec):
-    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling,'8'), source_yuv]
+    cmd = ['ffmpeg', '-y', '-i', image, '-pix_fmt', get_pixel_format(subsampling, '8'), source_yuv]
     my_exec(LOGGER, cmd)
 
     encoded_file = get_filename_with_temp_folder(temp_folder, 'temp.mj2')

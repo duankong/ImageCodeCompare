@@ -6,6 +6,7 @@ from .ffmpeg_format import get_pixel_format
 from .run_cmd import run_program
 
 
+
 def compute_vmaf(LOGGER, ref_image, dist_image, width, height, depth, temp_folder, subsampling):
     """ given a pair of reference and distorted images:
         use the ffmpeg libvmaf filter to compute vmaf, vif, ssim, and ms_ssim.
