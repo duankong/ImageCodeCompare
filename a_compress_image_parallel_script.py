@@ -25,15 +25,15 @@ import threading
 import sqlite3
 import numpy as np
 
-from utils.UtilsCommon import make_my_tuple, mkdir_p
-from utils.MysqlFun import get_insert_command, create_table_if_needed, does_entry_exist
+from utils.u_utils_common import make_my_tuple, mkdir_p
+from utils.u_mysql_execute import get_insert_command, create_table_if_needed, does_entry_exist
 # change
-from utils.sub_work import setup_logging
+from utils.u_logging_setup import setup_logging
 from Config.config_compress import args_image_compress_config
-from utils.result_easy_show import show_image_lossy_result, show_image_lossless_result
+from utils.u_result_easy_show import show_image_lossy_result, show_image_lossless_result
 
 # image tuples
-from Config.config_utils import tuple_choice
+from Config.config_utils import image_tuple_choice
 # 8 bit image cmd
 from utils.a_image_lossy_8bit_cmd import f_image_lossy_8bit
 from utils.a_image_lossless_8bit_cmd import f_image_lossless_8bit
@@ -41,11 +41,12 @@ from utils.a_image_lossless_8bit_cmd import f_image_lossless_8bit
 from utils.a_image_lossy_16bit_cmd import f_image_lossy_16bit
 from utils.a_image_lossless_16bit_cmd import f_image_lossless_16bit
 # data class
-from utils.Data_Prepare import ImageData
+from utils.m_data_class import ImageData
 
 TOTAL_BYTES = Counter()
 TOTAL_METRIC = Counter()
 TOTAL_ERRORS = Counter()
+results_total = list()
 
 LOGGER = logging.getLogger('image.compression')
 CONNECTION = None
@@ -190,7 +191,7 @@ def update_stats(results):
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
-def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric, target, target_tol):
+def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol):
     """
     计算指定质量
     """
@@ -208,7 +209,7 @@ def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric
                 skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
             if not skip_encode:
                 if args.func_choice in ['lossless', 'customize']:
-                    results.append(
+                    results_total.append(
                         (pool.apply_async(bisection,
                                           args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
                                                 metric, target, target_tol, codec.name, image, width, height, depth,
@@ -219,7 +220,7 @@ def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric
                          codec.subsampling))
                 elif args.func_choice == 'auto':
                     for para in np.linspace(codec.param_start, codec.param_end, 5):
-                        results.append(
+                        results_total.append(
                             (pool.apply_async(bisection,
                                               args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
                                                     metric, target, target_tol, codec.name, image, width, height, depth,
@@ -264,24 +265,24 @@ def main():
 
     # ===================================================   RUN   =================================================== #
     pool = multiprocessing.Pool(processes=args.num_process, initializer=initialize_worker)
-    results = list()
 
-    TUPLE_CODECS = tuple_choice(LOGGER, data.depth, args.func_choice)
+    TUPLE_CODECS = image_tuple_choice(LOGGER, data.depth, args.func_choice)
     if args.func_choice == 'customize':
         for target in target_arr:
-            func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric, target, target_tol)
-        show_image_lossy_result(results, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC, TOTAL_BYTES,
+            func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
+        show_image_lossy_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
+                                TOTAL_BYTES,
                                 TUPLE_CODECS, data, target_arr, metric)
     elif args.func_choice == 'lossless':
         metric = 'psnr_avg'
         target = 0
-        func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric, target, target_tol)
-        show_image_lossless_result(results, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
+        func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
+        show_image_lossless_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
                                    TOTAL_BYTES, TUPLE_CODECS, target, metric, data.image_nums)
     elif args.func_choice == 'auto':
         metric = 'psnr_avg'
         target = 0
-        func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric, target, target_tol)
+        func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
     else:
         LOGGER.error("[Config] unsupport mode in {}".format(args.func_choice))
         exit(0)

@@ -2,22 +2,38 @@
 from Config.image_8bit_config import tuple_codes, lossless_tuple_codes
 from Config.image_16bit_config import tuple_codes_high_dynamic_range, lossless_tuple_codes_high_dynamic_range
 
+from Config.video_8bit_config import video_tuple_lossless_codes, video_tuple_codes
+
 _VERSION_ = 1.0
 
 
-def tuple_choice(LOGGER, depth, func_choice):
+def video_tuple_choice(LOGGER, depth, func_choice):
+    TUPLE_CODECS = None
+    if depth == '8':
+        if func_choice == 'lossless':
+            TUPLE_CODECS = video_tuple_lossless_codes()
+        elif func_choice in ['customize', 'auto']:
+            TUPLE_CODECS = video_tuple_codes()
+        else:
+            LOGGER.error("[tuple_choice] Not support tuple in func_choice={}".format(func_choice))
+    else:
+        LOGGER.error("[tuple_choice] Not support tuple in depth = {}".format(depth))
+    return TUPLE_CODECS
+
+
+def image_tuple_choice(LOGGER, depth, func_choice):
     TUPLE_CODECS = None
     if depth == '8':
         if func_choice == 'lossless':
             TUPLE_CODECS = lossless_tuple_codes()
-        elif func_choice in ['customize','auto']:
+        elif func_choice in ['customize', 'auto']:
             TUPLE_CODECS = tuple_codes()
         else:
             LOGGER.error("[tuple_choice] Not support tuple in func_choice={}".format(func_choice))
     elif depth == '16':
         if func_choice == 'lossless':
             TUPLE_CODECS = lossless_tuple_codes_high_dynamic_range()
-        elif func_choice in ['customize','auto']:
+        elif func_choice in ['customize', 'auto']:
             TUPLE_CODECS = tuple_codes_high_dynamic_range()
         else:
             LOGGER.error("[tuple_choice] Not support tuple in func_choice = {}".format(func_choice))

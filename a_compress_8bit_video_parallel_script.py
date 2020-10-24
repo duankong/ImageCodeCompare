@@ -6,18 +6,19 @@ import multiprocessing
 import ntpath
 import threading
 import sqlite3
+import numpy as np
 
-from utils.MysqlFun import create_table_if_needed, does_entry_exist, get_insert_command
-from utils.UtilsCommon import make_my_tuple_video, mkdir_p
-
-# change
-from utils.Data_Prepare import ImageData
+from utils.m_data_class import ImageData
+# utils
+from utils.u_mysql_execute import create_table_if_needed, does_entry_exist, get_insert_command
+from utils.u_logging_setup import setup_logging
+from utils.u_result_easy_show import result_video_show, result_lossless_show
+from utils.u_utils_common import make_my_tuple_video, mkdir_p
+# config
 from Config.config_compress import args_compress_video_config
-from Config.video_8bit_config import video_tuple_codes, video_tuple_lossless_codes
+from Config.config_utils import video_tuple_choice
 from utils.a_video_lossless_8bit_cmd import f_video_lossless_8bit
 from utils.a_video_lossy_8bit_cmd import f_video_lossly_8bit
-from utils.sub_work import setup_logging
-from utils.result_easy_show import result_video_show, result_lossless_show
 
 args = args_compress_video_config()
 TOTAL_BYTES = Counter()
@@ -92,7 +93,7 @@ def initialize_worker():
 
 
 def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file, width, height, real_frames, depth,
-              subsampling):
+              subsampling, model, param):
     """ Perform encode with given codec, subsampling, etc. with the goal of hitting given target quality as
     closely as possible. Employs binary search.
     :param inverse: boolean True means QP, else quality factor
@@ -111,10 +112,10 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
     """
     temp_uuid = str(uuid.uuid4())
     temp_folder = WORK_DIR + make_my_tuple_video(LOGGER, yuv_file, width, height, real_frames, codec, metric, target,
-                                                 subsampling,
+                                                 subsampling, param,
                                                  uuid=temp_uuid)
     tuple_minus_uuid = make_my_tuple_video(LOGGER, yuv_file, width, height, real_frames, codec, metric, target,
-                                           subsampling)
+                                           subsampling, param)
     mkdir_p(temp_folder)
 
     image_status = dict(
@@ -133,7 +134,9 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
                        inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file, width, height, real_frames,
                        subsampling)))
 
-    if args.lossless == False:
+    # run
+    last_c, quality, encoded_file = None, None, None
+    if model == 'customize':
         c = (a + b) / 2
         last_c = c
         while (b - a) > ab_tol:
@@ -155,14 +158,19 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
                     else:
                         b = c
                 c = (a + b) / 2
-    else:
+    elif model == 'lossless':
         last_c = '0'
         quality, encoded_file = f_video_lossless_8bit(LOGGER, codec, yuv_status, last_c, temp_folder)
-
+    elif model == 'auto':
+        last_c = param
+        quality, encoded_file = f_video_lossly_8bit(LOGGER, codec, yuv_status, last_c, temp_folder)
+    else:
+        LOGGER.error("[bisection] Not support mode in {}".format(model))
+        exit(0)
     return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
 
 
-def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol):
+def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model):
     # for num in range(int(data.image_nums / frames) + 1):
     for num in range(1):
         if num == int(data.image_nums / data.max_frames):
@@ -182,20 +190,36 @@ def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric,
                 unique_id = make_my_tuple_video(LOGGER, yuv_files, data.width, data.height, real_frames, codec.name,
                                                 metric,
                                                 target,
-                                                codec.subsampling)
+                                                codec.subsampling, 0)
                 skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
-
             if not skip_encode:
-                results.append(
-                    (pool.apply_async(bisection,
-                                      args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
-                                            metric, target, target_tol, codec.name, yuv_files, data.width, data.height,
-                                            real_frames, data.depth,
-                                            codec.subsampling),
-                                      callback=update_stats,
-                                      error_callback=error_function),
-                     codec.name,
-                     codec.subsampling))
+                if model in ['lossless', 'customize']:
+                    results.append(
+                        (pool.apply_async(bisection,
+                                          args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
+                                                metric, target, target_tol, codec.name, yuv_files, data.width,
+                                                data.height,
+                                                real_frames, data.depth,
+                                                codec.subsampling, model, 0),
+                                          callback=update_stats,
+                                          error_callback=error_function),
+                         codec.name,
+                         codec.subsampling))
+                elif model == 'auto':
+                    for param in np.linspace(codec.param_start, codec.param_end, 5):
+                        results.append(
+                            (pool.apply_async(bisection,
+                                              args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
+                                                    metric, target, target_tol, codec.name, yuv_files, data.width,
+                                                    data.height,
+                                                    real_frames, data.depth,
+                                                    codec.subsampling, model, param),
+                                              callback=update_stats,
+                                              error_callback=error_function),
+                             codec.name,
+                             codec.subsampling))
+                else:
+                    LOGGER.error("[func] Not support mode in {}".format(args.func_choice))
         LOGGER.info('-----------------------------------------------------------------------------------------')
 
 
@@ -208,6 +232,7 @@ def main_func():
     db_file_name = os.path.join(WORK_DIR, args.db_file_name)
     num_process = args.num_process
     frames = args.yuv_frames
+    model = args.func_choice
 
     data.init_yuv_info(args.batch_image_dir, args.yuv_dir, args.yuv_frames)
 
@@ -237,20 +262,25 @@ def main_func():
     # ===================================     Run     =================================== #
     pool = multiprocessing.Pool(processes=args.num_process, initializer=initialize_worker)
     results = list()
-    if args.lossless == False:
-        TUPLE_CODECS = video_tuple_codes()
+    TUPLE_CODECS = video_tuple_choice(LOGGER, '8', args.func_choice)
+    if model == 'customize':
         for target in target_arr:
-            func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol)
+            func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
         result_video_show(LOGGER, data.images, results, TOTAL_ERRORS, TUPLE_CODECS, TOTAL_METRIC,
                           TOTAL_BYTES, only_perform_missing_encodes, frames, metric, target_arr)
-    elif args.lossless == True:
-        TUPLE_CODECS = video_tuple_lossless_codes()
+    elif model == 'lossless':
+        metric = 'psnr_avg'
         target = 0
-        func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol)
+        func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
         result_lossless_show(LOGGER, data.images, results, TOTAL_ERRORS, TUPLE_CODECS, TOTAL_METRIC,
                              TOTAL_BYTES, only_perform_missing_encodes, frames, metric, target)
+    elif model == 'auto':
+        metric = 'psnr_avg'
+        target = 0
+        func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
     else:
-        LOGGER.debug('args.lossless ERROR !!')
+        LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
+        exit(0)
     # ===================================     END     =================================== #
     pool.close()
     pool.join()

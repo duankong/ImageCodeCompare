@@ -8,13 +8,10 @@ test_image_root = '/code/test/images'
 
 # project info
 project_root = '/code'
-project = (["a_compress_image_parallel_script.py",
-            "a_compress_8bit_video_parallel_script.py"])
+project = (["a_compress_image_parallel_script.py", "a_compress_8bit_video_parallel_script.py"])
 
 
-def test_run():
-    indx = 0
-
+def run_image_compres():
     for depth in ["8", "16"]:
         for model in ["auto", "customize", "lossless"]:
             image_path = "{}/test_{}bit_image".format(test_image_root, depth)
@@ -28,26 +25,37 @@ def test_run():
             print("[ ** ] Run Image depth = {:<2} model = {} ".format(depth, model))
             run_program_no_LOGGER(cmd, cwd=result_path)
 
+
+def run_video_compres():
     for depth in ["8"]:
-        for model in ["lossy", "lossless"]:
+        for model in ["auto", "customize", "lossless"]:
             image_path = "{}/test_{}bit_video".format(test_image_root, depth)
             result_path = "{}/runs_video_{}_{}/".format(test_result_root, depth, model)
+            batchfile, yuv_files = init_yuv_files(result_path)
             make_dirs(result_path)
             cmd = ["python3", '{}/{}'.format(project_root, project[1]),
                    '--image_path', image_path,
-                   '--work_dir', result_path,
+                   '--func_choice', model,
+                   '--batch_image_dir={}'.format(batchfile),
+                   '--yuv_dir={}'.format(yuv_files),
+                   '--prepare_yuv={}'.format("True"),
+                   '--work_dir', result_path
                    ]
-            batchfile, yuv_files = init_yuv_files(result_path)
-            cmd[2:2] = ['--batch_image_dir={}'.format(batchfile)]
-            cmd[2:2] = ['--yuv_dir={}'.format(yuv_files)]
-            cmd[2:2] = ['--prepare_yuv={}'.format("True")]
 
-            if model == 'lossless':
-                cmd[2:2] = ['--lossless=True']
-            else:
-                cmd[2:2] = ['--lossless=False']
             print("[ ** ] Run Video depth = {:<2} model = {} ".format(depth, model))
             run_program_no_LOGGER(cmd, cwd=result_path)
+
+
+def run_image_video_compress(choice):
+    if choice == 'image':
+        run_image_compres()
+    elif choice == 'video':
+        run_video_compres()
+    elif choice == 'image_video':
+        run_image_compres()
+        run_video_compres()
+    else:
+        print("[**run_image_video_compress**] Not support choice with {}".format(choice))
 
 
 def run_program_no_LOGGER(*args, **kwargs):
@@ -88,4 +96,5 @@ def init_yuv_files(result_path):
 
 
 if __name__ == '__main__':
-    test_run()
+    choice = ['image', 'video', 'image_video']
+    run_image_video_compress(choice=choice[1])

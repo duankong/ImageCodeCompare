@@ -4,10 +4,10 @@ import ntpath
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-from utils.UtilsCommon import easy_logging, get_mean_metric_value_file_size_bytes, get_metric_value_file_size_bytes, \
+from utils.u_utils_common import easy_logging, get_mean_metric_value_file_size_bytes, get_metric_value_file_size_bytes, \
     get_print_string
 
-from utils.MysqlFun import get_unique_sorted, query_for_codec, apply_checks_before_analyzing, apply_size_check, \
+from utils.u_mysql_execute import get_unique_sorted, query_for_codec, apply_checks_before_analyzing, apply_size_check, \
     get_unique_sorted_with_sub_sampling
 
 from Config.config_analyse import args_analyze_config

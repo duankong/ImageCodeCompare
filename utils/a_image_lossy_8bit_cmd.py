@@ -1,11 +1,11 @@
 import os
 import glob
 import ntpath
-from .dirs_func import get_filename_with_temp_folder
-from .run_cmd import run_program, my_exec
-from .ffmpeg_format import get_pixel_format
-from .MetricCaculate import compute_metrics
-from .cmd_root_path import cmd_root_path
+from .u_folder_build import get_filename_with_temp_folder
+from .u_run_cmd import run_program, my_exec
+from .u_ffmpeg_format import get_pixel_format
+from .m_metric_caculate import compute_metrics
+from .u_format_bin_root_path import cmd_root_path
 
 FORM = cmd_root_path()
 

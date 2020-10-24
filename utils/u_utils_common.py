@@ -7,8 +7,6 @@ import statistics
 import datetime
 import multiprocessing
 
-
-
 """
 ----------------------------------------------
 SHOW_FORMAT
@@ -141,9 +139,6 @@ OTHERS
 """
 
 
-
-
-
 def decode(value):
     """ Convert bytes to string, if needed
     """
@@ -152,18 +147,15 @@ def decode(value):
     return value
 
 
-
-
-
-def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling,param, uuid=None):
+def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampling, param, uuid=None):
     """ make unique tuple for unique directory, primary key in DB, etc.
     """
     (filepath, tempfilename) = os.path.split(image)
     filename, extension = os.path.splitext(tempfilename)
-    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_{para}_' \
+    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_{param}_' \
         .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
                 codec=codec,
-                metric=metric, target=target, subsampling=subsampling,para=param)
+                metric=metric, target=target, subsampling=subsampling, param=param)
     if uuid is not None:
         my_tuple = my_tuple + uuid
     if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX
@@ -172,14 +164,14 @@ def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampli
     return my_tuple
 
 
-def make_my_tuple_video(LOGGER, image, width, height, frames, codec, metric, target, subsampling, uuid=None):
+def make_my_tuple_video(LOGGER, image, width, height, frames, codec, metric, target, subsampling, param, uuid=None):
     """ make unique tuple for unique directory, primary key in DB, etc.
     """
     (filepath, tempfilename) = os.path.split(image)
     filename, extension = os.path.splitext(tempfilename)
-    my_tuple = '{filename}_{extension}_{width}x{height}x{frames}_{codec}_{metric}_{target}_{subsampling}_' \
+    my_tuple = '{filename}_{extension}_{width}x{height}x{frames}_{codec}_{metric}_{target}_{subsampling}_{param}_' \
         .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
-                frames=frames, codec=codec, metric=metric, target=target, subsampling=subsampling)
+                frames=frames, codec=codec, metric=metric, target=target, subsampling=subsampling, param=param)
     if uuid is not None:
         my_tuple = my_tuple + uuid
     if len(my_tuple) > 255:  # limits due to max dir name or file name length on UNIX

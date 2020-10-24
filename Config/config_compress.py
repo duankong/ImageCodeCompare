@@ -67,6 +67,7 @@ def args_image_compress_config():
                         db_file_name='encoding_results_{}.db'.format(parser.parse_args().metric))
     return parser.parse_args()
 
+
 """
 ---------------------------------------------------------
 5 compress in video 视频压缩 有损 无损 8bit
@@ -82,9 +83,8 @@ def args_compress_video_config():
 
     parser.add_argument('-i', '--image_path', type=str, default='/code/images',
                         help='souce image path (default =  /code/images)')
-
-    parser.add_argument('-l', '--lossless', type=boolean_string, choices=[True, False],
-                        help='execute lossless code (default=False)')
+    parser.add_argument('-fc', '--func_choice', type=str, choices=['auto', 'lossless', 'customize'],
+                        help=' Choose different execution modes in  ["auto","lossless","customize"] (default = auto)')
     # YUV
     parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
                         choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes', 'lossless'],
@@ -117,11 +117,12 @@ def args_compress_video_config():
     parser.set_defaults(target_arr=get_default_target_arr(parser.parse_args().metric),
                         target_tol=get_default_target_tol(parser.parse_args().metric),
                         only_perform_missing_encodes=False,
-                        prepare_yuv=False,
-                        lossless=False,
+                        prepare_yuv=True,
+                        image_path='/code/images/sourceimage/8bit/',
                         batch_image_dir='/code/CCC/batch',
                         yuv_dir='/code/CCC/yuvs',
                         yuv_frames=30,
+                        func_choice='customize',
                         db_file_name='encoding_results_video_{}.db'.format(parser.parse_args().metric))
     return parser.parse_args()
 

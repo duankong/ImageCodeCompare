@@ -1,6 +1,6 @@
 import multiprocessing
-from utils.UtilsCommon import listdir_full_path, check_dirs
-from utils.Test5Common import show_images, error_function, HDR_CONVERT_RG, RG_CONVERT_HDR, HDR_CONVERT_L8, \
+from utils.u_utils_common import listdir_full_path, check_dirs
+from utils.m_test_5_utils import show_images, error_function, HDR_CONVERT_RG, RG_CONVERT_HDR, HDR_CONVERT_L8, \
     get_dimensions
 
 TARGET_IMAGE = list()
