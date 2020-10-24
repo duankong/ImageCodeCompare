@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+from sys import argv
 
 # test root
 test_result_root = '/code/test/result'
@@ -47,11 +48,17 @@ def run_video_compres():
 
 
 def run_image_video_compress(choice):
+    cmd = ['sh', '/code/init.sh']
+    run_program_no_LOGGER(cmd)
+
     if choice == 'image':
+        print("[ Run ] [ 0 ] Only compress image ")
         run_image_compres()
     elif choice == 'video':
+        print("[ Run ] [ 1 ] Only compress video ")
         run_video_compres()
     elif choice == 'image_video':
+        print("[ Run ] [ 2 ] Compress image and video")
         run_image_compres()
         run_video_compres()
     else:
@@ -97,4 +104,7 @@ def init_yuv_files(result_path):
 
 if __name__ == '__main__':
     choice = ['image', 'video', 'image_video']
-    run_image_video_compress(choice=choice[2])
+
+    assert len(argv) == 2
+    assert argv[1] in ['0', '1', '2']
+    run_image_video_compress(choice=choice[int(argv[1])])
