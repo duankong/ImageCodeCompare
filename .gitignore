@@ -1,6 +1,7 @@
 /venv
 /.idea
 /__pycache__
+Config/__pycache__/
 /BakFiles
 utils/__pycache__/
 runs/

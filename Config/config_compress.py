@@ -60,7 +60,7 @@ def args_image_compress_config():
     ## version
     parser.add_argument('-v', '--version', action='version', version='%(prog)s {}'.format(_VERSION_))
     ## default
-    parser.set_defaults(func_choice='auto',
+    parser.set_defaults(func_choice='lossless',
                         target_arr=get_default_target_arr(parser.parse_args().metric),
                         target_tol=get_default_target_tol(parser.parse_args().metric),
                         only_perform_missing_encodes=False,
