@@ -97,4 +97,4 @@ def init_yuv_files(result_path):
 
 if __name__ == '__main__':
     choice = ['image', 'video', 'image_video']
-    run_image_video_compress(choice=choice[1])
+    run_image_video_compress(choice=choice[2])

@@ -3,7 +3,6 @@ from collections import Counter
 import logging
 import uuid
 import multiprocessing
-import ntpath
 import threading
 import sqlite3
 import numpy as np
@@ -43,19 +42,20 @@ def update_stats(results):
     TOTAL_METRIC[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
         codec_status['target'])] += quality[codec_status['metric']]
 
-    SOUCR_FILE_SIZE = int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels * im_status[
+    source_file_size = int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels * im_status[
         'depth'] / 8
 
-    BPP = os.path.getsize(encoded_file) * 8.0 / (
+    bpp = os.path.getsize(encoded_file) * 8.0 / (
             int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels)
 
-    COMPRESS_RATE = SOUCR_FILE_SIZE / os.path.getsize(encoded_file)
+    compress_rate = source_file_size / os.path.getsize(encoded_file)
 
     print(
-        "souce_file_size ={} Bytes BPP = {} Compress_rate = {} frames ={} ".format(SOUCR_FILE_SIZE, BPP, COMPRESS_RATE,
-                                                                                   im_status['frames']))
-
+        "source_file_size ={} Bytes BPP = {} Compress_rate = {} frames ={} ".format(source_file_size, bpp,
+                                                                                    compress_rate,
+                                                                                    im_status['frames']))
     try:
+        # noinspection PyUnresolvedReferences
         CONNECTION.execute(get_insert_command(), (
             codec_status['tuple_minus_uuid'], im_status['source_image'], im_status['width'],
             im_status['height'],
@@ -68,11 +68,15 @@ def update_stats(results):
             quality['psnr_avg'],
             quality['adm2'],
             im_status['subsampling'], file_size_bytes, encoded_file,
-            BPP, COMPRESS_RATE, im_status['frames'], SOUCR_FILE_SIZE
+            bpp, compress_rate, im_status['frames'], source_file_size
         ))
+        # noinspection PyUnresolvedReferences
         CONNECTION.commit()
-    except:
-        print("[ update_stats ] ERROR")
+    except Exception:
+        LOGGER.error("[ update_stats ] ERROR")
+        exit(0)
+    else:
+        pass
         # CONNECTION.rollback()
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
@@ -145,7 +149,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
             last_c = c
 
             if abs(quality[metric] - target) < target_tol:
-                return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
+                return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
             else:
                 if inverse:
                     if quality[metric] < target:
@@ -167,10 +171,10 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, yuv_file
     else:
         LOGGER.error("[bisection] Not support mode in {}".format(model))
         exit(0)
-    return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
+    return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
 
 
-def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model):
+def func(pool, data, tuple_codes, only_perform_missing_encodes, target, metric, results, target_tol, model):
     # for num in range(int(data.image_nums / frames) + 1):
     for num in range(1):
         if num == int(data.image_nums / data.max_frames):
@@ -183,7 +187,7 @@ def func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric,
             '[{}] Source yuv file: {} {}x{}x{:<3} bit-depth: {}'.format(num, yuv_files, data.width, data.height,
                                                                         real_frames,
                                                                         data.depth))
-        for codec in TUPLE_CODECS:
+        for codec in tuple_codes:
             LOGGER.debug(" ")
             skip_encode = False
             if only_perform_missing_encodes:
@@ -236,10 +240,10 @@ def main_func():
 
     data.init_yuv_info(args.batch_image_dir, args.yuv_dir, args.yuv_frames)
 
-    if args.prepare_yuv == True:
+    if args.prepare_yuv:
         data.yuv_prepare(num_process=num_process)
 
-    # =========================================   only_perform_missing_encodes   ========================================= #
+    # =====================================   only_perform_missing_encodes   ===================================== #
 
     setup_logging(LOGGER=LOGGER, worker=False, worker_id=multiprocessing.current_process().ident)
     only_perform_missing_encodes = args.only_perform_missing_encodes
@@ -262,22 +266,22 @@ def main_func():
     # ===================================     Run     =================================== #
     pool = multiprocessing.Pool(processes=args.num_process, initializer=initialize_worker)
     results = list()
-    TUPLE_CODECS = video_tuple_choice(LOGGER, '8', args.func_choice)
+    tuple_codecs = video_tuple_choice(LOGGER, '8', args.func_choice)
     if model == 'customize':
         for target in target_arr:
-            func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
-        result_video_show(LOGGER, data.images, results, TOTAL_ERRORS, TUPLE_CODECS, TOTAL_METRIC,
+            func(pool, data, tuple_codecs, only_perform_missing_encodes, target, metric, results, target_tol, model)
+        result_video_show(LOGGER, data.images, results, TOTAL_ERRORS, tuple_codecs, TOTAL_METRIC,
                           TOTAL_BYTES, only_perform_missing_encodes, frames, metric, target_arr)
     elif model == 'lossless':
         metric = 'psnr_avg'
         target = 0
-        func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
-        result_lossless_show(LOGGER, data.images, results, TOTAL_ERRORS, TUPLE_CODECS, TOTAL_METRIC,
+        func(pool, data, tuple_codecs, only_perform_missing_encodes, target, metric, results, target_tol, model)
+        result_lossless_show(LOGGER, data.images, results, TOTAL_ERRORS, tuple_codecs, TOTAL_METRIC,
                              TOTAL_BYTES, only_perform_missing_encodes, frames, metric, target)
     elif model == 'auto':
         metric = 'psnr_avg'
         target = 0
-        func(pool, data, TUPLE_CODECS, only_perform_missing_encodes, target, metric, results, target_tol, model)
+        func(pool, data, tuple_codecs, only_perform_missing_encodes, target, metric, results, target_tol, model)
     else:
         LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)

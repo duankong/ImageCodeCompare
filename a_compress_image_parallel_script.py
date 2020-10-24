@@ -54,7 +54,7 @@ args = args_image_compress_config()
 WORK_DIR = args.work_dir
 
 
-def f_func_choice(LOGGER, depth):
+def f_func_choice(depth):
     f_lossy, f_lossless = None, None
     if depth == '8':
         f_lossless = f_image_lossless_8bit
@@ -113,7 +113,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
          ('subsampling', subsampling), ('temp_folder', temp_folder)])
     compress_status = dict(
         [('metric', metric), ('target', target), ('codec', codec), ('tuple_minus_uuid', tuple_minus_uuid)])
-    f_lossy, f_lossless = f_func_choice(LOGGER, depth)
+    f_lossy, f_lossless = f_func_choice(depth)
 
     LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
                        inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling)))
@@ -126,7 +126,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
             quality, encoded_file = f_lossy(LOGGER, image, width, height, temp_folder, codec, subsampling, c)
             last_c = c
             if abs(quality[metric] - target) < target_tol:
-                return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
+                return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
             else:
                 if inverse:
                     if quality[metric] < target:
@@ -148,7 +148,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     else:
         LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)
-    return (last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status)
+    return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
 
 
 def update_stats(results):
@@ -165,15 +165,16 @@ def update_stats(results):
     TOTAL_METRIC[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
         codec_status['target'])] += quality[codec_status['metric']]
 
-    SOUCR_FILE_SIZE = int(im_status['width']) * int(im_status['height']) * int(im_status['frames']) * channels * int(
+    source_file_size = int(im_status['width']) * int(im_status['height']) * int(im_status['frames']) * channels * int(
         im_status['depth']) / 8
 
-    BPP = os.path.getsize(encoded_file) * 8.0 / (
+    bpp = os.path.getsize(encoded_file) * 8.0 / (
             int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels)
 
-    COMPRESS_RATE = SOUCR_FILE_SIZE / os.path.getsize(encoded_file)
+    compress_rate = source_file_size / os.path.getsize(encoded_file)
 
     try:
+        # noinspection PyUnresolvedReferences
         CONNECTION.execute(get_insert_command(), (
             codec_status['tuple_minus_uuid'],
             im_status['source_image'], im_status['width'], im_status['height'], im_status['depth'],
@@ -182,8 +183,9 @@ def update_stats(results):
             quality['mse_y'], quality['mse_u'], quality['mse_v'], quality['mse_avg'],
             quality['psnr_y'], quality['psnr_u'], quality['psnr_v'], quality['psnr_avg'],
             quality['adm2'], im_status['subsampling'], file_size_bytes, encoded_file,
-            BPP, COMPRESS_RATE, im_status['frames'], SOUCR_FILE_SIZE
+            bpp, compress_rate, im_status['frames'], source_file_size
         ))
+        # noinspection PyUnresolvedReferences
         CONNECTION.commit()
     except:
         LOGGER.error("[ update_stats ] ERROR")
@@ -191,7 +193,7 @@ def update_stats(results):
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
-def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol):
+def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target, target_tol):
     """
     计算指定质量
     """
@@ -200,7 +202,7 @@ def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target,
         LOGGER.info(
             "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
 
-        for codec in TUPLE_CODECS:
+        for codec in tuple_codecs:
             LOGGER.debug(" ")
             skip_encode = False
             if only_perform_missing_encodes:
@@ -284,7 +286,7 @@ def main():
         target = 0
         func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
     else:
-        LOGGER.error("[Config] unsupport mode in {}".format(args.func_choice))
+        LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)
 
     pool.close()
