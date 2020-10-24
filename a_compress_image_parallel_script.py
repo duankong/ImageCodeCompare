@@ -165,8 +165,7 @@ def update_stats(results):
         codec_status['target'])] += quality[codec_status['metric']]
 
     SOUCR_FILE_SIZE = int(im_status['width']) * int(im_status['height']) * int(im_status['frames']) * channels * int(
-        im_status[
-            'depth']) / 8
+        im_status['depth']) / 8
 
     BPP = os.path.getsize(encoded_file) * 8.0 / (
             int(im_status['width']) * int(im_status['height']) * im_status['frames'] * channels)
@@ -175,17 +174,13 @@ def update_stats(results):
 
     try:
         CONNECTION.execute(get_insert_command(), (
-            codec_status['tuple_minus_uuid'], im_status['source_image'], im_status['width'],
-            im_status['height'],
-            im_status['depth'],
+            codec_status['tuple_minus_uuid'],
+            im_status['source_image'], im_status['width'], im_status['height'], im_status['depth'],
             codec_status['codec'], param, im_status['temp_folder'], codec_status['metric'], codec_status['target'],
             quality['vmaf'], quality['ssim'], quality['ms_ssim'], quality['vif'],
-            quality['mse_y'], quality['mse_u'], quality['mse_v'],
-            quality['mse_avg'],
-            quality['psnr_y'], quality['psnr_u'], quality['psnr_v'],
-            quality['psnr_avg'],
-            quality['adm2'],
-            im_status['subsampling'], file_size_bytes, encoded_file,
+            quality['mse_y'], quality['mse_u'], quality['mse_v'], quality['mse_avg'],
+            quality['psnr_y'], quality['psnr_u'], quality['psnr_v'], quality['psnr_avg'],
+            quality['adm2'], im_status['subsampling'], file_size_bytes, encoded_file,
             BPP, COMPRESS_RATE, im_status['frames'], SOUCR_FILE_SIZE
         ))
         CONNECTION.commit()
@@ -209,7 +204,7 @@ def func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, results, metric
             skip_encode = False
             if only_perform_missing_encodes:
                 unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
-                                          codec.subsampling)
+                                          codec.subsampling, 0)
                 skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
             if not skip_encode:
                 if args.func_choice in ['lossless', 'customize']:
@@ -290,7 +285,7 @@ def main():
     else:
         LOGGER.error("[Config] unsupport mode in {}".format(args.func_choice))
         exit(0)
-        
+
     pool.close()
     pool.join()
     CONNECTION.close()
