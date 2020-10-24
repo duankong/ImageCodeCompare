@@ -160,7 +160,7 @@ def make_my_tuple(LOGGER, image, width, height, codec, metric, target, subsampli
     """
     (filepath, tempfilename) = os.path.split(image)
     filename, extension = os.path.splitext(tempfilename)
-    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_{para}' \
+    my_tuple = '{filename}_{extension}_{width}x{height}_{codec}_{metric}_{target}_{subsampling}_{para}_' \
         .format(filename=filename, extension=extension[1:], image=ntpath.basename(image), width=width, height=height,
                 codec=codec,
                 metric=metric, target=target, subsampling=subsampling,para=param)
