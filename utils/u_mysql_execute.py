@@ -54,7 +54,7 @@ def get_rate_quality_points(connection, sub_sampling, codec, source, total_pixel
 
 
 def query_for_codec(codec, sub_sampling, target_metric, target_value):
-    return "SELECT {},FILE_SIZE_BYTES,VMAF,SOURCE FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
+    return "SELECT {},FILE_SIZE_BYTES,VMAF,SOURCE,COMPRESS_RATE,BPP FROM ENCODES WHERE CODEC='{}' AND SUB_SAMPLING='{}' AND TARGET_METRIC='{}' AND TARGET_VALUE={}" \
         .format(target_metric.upper(), codec, sub_sampling, target_metric, target_value)
 
 

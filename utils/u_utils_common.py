@@ -46,13 +46,15 @@ def get_metric_value_file_size_bytes(results):
     file_size_values = [elem[1] for elem in results]
     vmaf_values = [elem[2] for elem in results]
     source_image = [elem[3] for elem in results]
-    return metric_values, file_size_values, vmaf_values, source_image
+    compress_rate = [elem[4] for elem in results]
+    bpp = [elem[5] for elem in results]
+    return metric_values, file_size_values, vmaf_values, source_image,compress_rate,bpp
 
 
 def get_mean_metric_value_file_size_bytes(results):
-    metric_values, file_size_values, vmaf_values, source_image = get_metric_value_file_size_bytes(results)
+    metric_values, file_size_values, vmaf_values, source_image,compress_rate,bpp = get_metric_value_file_size_bytes(results)
     return statistics.mean(metric_values), statistics.mean(file_size_values), len(metric_values), statistics.mean(
-        vmaf_values)
+        vmaf_values),statistics.mean(compress_rate)
 
 
 """

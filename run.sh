@@ -7,8 +7,6 @@ db_file_name="encoding_results_${metric}.db"
 
 ## COMPRESSION
 cd /code/runs/
-python3 /code/a_compress_8bit_video_parallel_script.py  \
-#--lossless=True 
-#--metric ${metric} \
-#--db_file_name=${db_file_name} \
+python3 /code/a_compress_image_parallel_script.py   \
+--func_choice='lossless' \
 

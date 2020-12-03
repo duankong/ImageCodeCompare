@@ -35,7 +35,7 @@ def args_analyze_config():
     parser.add_argument('-m', '--metric', type=str, default='psnr_avg',
                         choices=['psnr_avg', 'ssim', 'vmaf', 'file_size_bytes', 'lossless'],
                         help='the target metric ')
-    parser.add_argument('-db', '--db_file_name', type=str, default='encoding_results_lossless.db',
+    parser.add_argument('-db', '--db_file_name', type=str, default='encoding_results_psnr_avg.db',
                         help="chose the db file for analyze ")
     parser.add_argument('-l', '--lossless', type=boolean_string, default=False,
                         choices=[True, False],

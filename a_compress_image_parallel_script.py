@@ -24,6 +24,8 @@ import ntpath
 import threading
 import sqlite3
 import numpy as np
+from tqdm import tqdm
+
 
 from utils.u_utils_common import make_my_tuple, mkdir_p
 from utils.u_mysql_execute import get_insert_command, create_table_if_needed, does_entry_exist
@@ -148,6 +150,7 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     else:
         LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)
+    print('#',end='')
     return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
 
 
@@ -198,10 +201,11 @@ def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target,
     计算指定质量
     """
     width, height, depth = data.width, data.height, data.depth
+    # 每一张图像加入任务
     for num, image in enumerate(data.images):
         LOGGER.info(
             "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
-
+        # 每一个编码方式进行遍历
         for codec in tuple_codecs:
             LOGGER.debug(" ")
             skip_encode = False

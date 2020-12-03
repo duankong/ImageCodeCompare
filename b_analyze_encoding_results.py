@@ -16,6 +16,25 @@ blanket = 20
 codec_len = 15
 
 
+def eve_line(logger, all_codec_results_terse_all, source_image_all, CR):
+    num_size = len(all_codec_results_terse_all[0])
+    max_arr = np.zeros(num_size)
+    min_arr = np.zeros(num_size)
+    for i in range(len(all_codec_results_terse_all[0])):
+        consolidated_results = ""
+        for a in all_codec_results_terse_all:
+            consolidated_results += '{:.2f}%'.format(a[i]).rjust(codec_len) if CR == False else '{:.2f}'.format(
+                a[i]).rjust(codec_len)
+            max_arr[i] = max(max_arr[i], a[i])
+            min_arr[i] = min(min_arr[i], a[i])
+        prefix = source_image_all[i]
+        if CR:
+            prefix += "  CR"
+        if args_analyze_config().every_images == 1:
+            logger.info('{}:{}'.format(str(prefix).ljust(blanket), consolidated_results))
+    return max_arr, min_arr
+
+
 def show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict):
     print('\n')
 
@@ -24,26 +43,36 @@ def show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, sourc
     logger.info(sub_sampling_report)
     logger.info('-' * len(sub_sampling_report))
     codecs_string = ' ' * (blanket + 1)
+
     for codec in codecs:
         codecs_string += codec.rjust(codec_len)
+
     logger.info(codecs_string)
     for target in unique_sorted_metric_values:
-        all_codec_results, codec_results_terse, all_codec_results_terse_all = results_dict[target]
+        results_list_compress_rate, results_list_compress_rate_all, codec_results_terse, all_codec_results_terse_all = \
+            results_dict[target]
         # ======================== EVE ======================== #
-        if args_analyze_config().every_images == 1:
-            for i in range(len(all_codec_results_terse_all[0])):
-                consolidated_results = ""
-                for a in all_codec_results_terse_all:
-                    consolidated_results += '{:.2f}%'.format(a[i]).rjust(codec_len)
-                logger.info('{}:{}'.format(str(source_image_all[i]).ljust(blanket), consolidated_results))
+        eve_line(logger, all_codec_results_terse_all, source_image_all, False)
+        eve_line(logger, results_list_compress_rate_all, source_image_all, True)
         # ======================== AVG ======================== #
         consolidated_results = ""
         for a in codec_results_terse:
             consolidated_results += a.ljust(codec_len)
-        logger.info('{}:{}'.format(str('T {}({})'.format(target, len(
-            all_codec_results_terse_all[0])) if not args_analyze_config().lossless else 'avg({})'.format(
-            len(all_codec_results_terse_all[0]))).ljust(blanket),
-                                   consolidated_results))
+        logger.info('{}:{}'.format(
+            str('T {}({})'.format(target, len(
+                all_codec_results_terse_all[0])) if not args_analyze_config().lossless else 'avg Terse({})'.format(
+                len(all_codec_results_terse_all[0]))).ljust(blanket),
+            consolidated_results))
+
+        consolidated_results = ""
+        for a in results_list_compress_rate:
+            consolidated_results += '{:.2f}'.format(a).rjust(codec_len)
+        logger.info('{}:{}'.format(
+            str('T {}({})'.format(target, len(
+                results_list_compress_rate_all[0])) if not args_analyze_config().lossless else 'avg CR({})'.format(
+                len(results_list_compress_rate_all[0]))).ljust(blanket),
+            consolidated_results))
+
     logger.info('=' * (blanket + 1 + codec_len * len(codecs)))
     logger.info("\n\n")
 
@@ -80,48 +109,57 @@ def main():
             baseline_results = connection.execute(
                 query_for_codec(baseline_codec, sub_sampling, metric_name, target)).fetchall()
 
-            baseline_metric_value, baseline_file_size, baseline_count, baseline_vmaf_value = get_mean_metric_value_file_size_bytes(
-                baseline_results)
+            baseline_metric_value, baseline_file_size, \
+            baseline_count_nums, baseline_vmaf_value, \
+            baseline_compress_rate = get_mean_metric_value_file_size_bytes(baseline_results)
 
-            baseline_metric_values_all, baseline_file_size_all, baselne_vmaf_values_all, baseline_source_image_all = get_metric_value_file_size_bytes(
-                baseline_results)
+            baseline_metric_values_all, baseline_file_size_all, \
+            baselne_vmaf_values_all, baseline_source_image_all, \
+            baseline_compress_rate_all, baseline_bpp_all = get_metric_value_file_size_bytes(baseline_results)
+
             if verbose == 0:
-                print('Baseline is ' + get_print_string(baseline_codec, sub_sampling, baseline_count,
+                print('Baseline is ' + get_print_string(baseline_codec, sub_sampling, baseline_count_nums,
                                                         baseline_metric_value,
                                                         baseline_file_size, metric_name, baseline_vmaf_value))
 
             results_bpp[baseline_codec].append(baseline_file_size * 8.0 / total_pixels)
             results_quality[baseline_codec].append(baseline_metric_value)
 
-            results_list = list()
+            results_list_compress_rate = list()
+            results_list_compress_rate_all = list()
             results_list_terse = list()
             results_list_terse_all = list()
+
             # ===================================     ANALYZE  codec     =================================== #
             for codec in codecs:
                 results = connection.execute(query_for_codec(codec, sub_sampling, metric_name, target)).fetchall()
-                metric_value, file_size, count, vmaf_value = get_mean_metric_value_file_size_bytes(results)
+                metric_value, file_size, count, vmaf_value, compress_rate = get_mean_metric_value_file_size_bytes(
+                    results)
                 if verbose == 0:
                     print(' Compared codec is ' + get_print_string(codec, sub_sampling, count, metric_value, file_size,
                                                                    metric_name, vmaf_value))
                     print('  Average reduction is {:.2f}%'.format(
                         (file_size - baseline_file_size) / baseline_file_size * 100.0))
                 # negative is better. Positive means increase in file_size
-                results_list.append(
-                    '{} {:.2f}%'.format(codec, (file_size - baseline_file_size) / baseline_file_size * 100.0))
+                results_list_compress_rate.append(compress_rate)
                 results_list_terse.append(
                     '{:.2f}%'.format((file_size - baseline_file_size) / baseline_file_size * 100.0).rjust(codec_len))
 
-                metric_values_all, file_size_all, vmaf_values_all, source_image_all = get_metric_value_file_size_bytes(
+                metric_values_all, file_size_all, \
+                vmaf_values_all, source_image_all, \
+                compress_rate_all, bpp_all = get_metric_value_file_size_bytes(
                     results)
 
                 assert source_image_all == baseline_source_image_all
                 results_list_terse_all.append((np.array(file_size_all) - np.array(baseline_file_size_all)) / np.array(
                     baseline_file_size_all) * 100)
+                results_list_compress_rate_all.append(compress_rate_all)
 
                 results_bpp[codec].append(file_size * 8.0 / total_pixels)
                 results_quality[codec].append(metric_value)
 
-            results_dict[target] = (results_list, results_list_terse, results_list_terse_all)
+            results_dict[target] = (
+                results_list_compress_rate, results_list_compress_rate_all, results_list_terse, results_list_terse_all)
             print("")
         # ===================================  SHOW  RESULT  =================================== #
         show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict)
@@ -145,6 +183,7 @@ def main():
         plt.title('{} subsampling, using metric {}'.format(sub_sampling, metric_name.upper()))
         plt.tight_layout()
         fig.savefig('{}_{}_{}.png'.format(sub_sampling, metric_name, ntpath.basename(db_file_name)))
+
 
 if __name__ == '__main__':
     main()
