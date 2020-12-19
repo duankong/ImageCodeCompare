@@ -4,6 +4,7 @@ import json
 from .u_utils_common import get_filename_with_temp_folder
 from .u_ffmpeg_format import get_pixel_format
 from .u_run_cmd import run_program
+from .u_folder_build import remove_files
 
 
 
@@ -36,9 +37,7 @@ def compute_psnr(LOGGER, ref_image, dist_image, width, height, depth, temp_folde
     """ given a pair of reference and distorted images:
         use the ffmpeg psnr filter to compute psnr and mse for each channel.
     """
-
     pixel_format = get_pixel_format(subsampling, depth)
-
     log_path = get_filename_with_temp_folder(temp_folder, 'stats_psnr.log')
     cmd = ['ffmpeg',
            '-f', 'rawvideo', '-pix_fmt', pixel_format, '-s:v', '%s,%s' % (width, height), '-i', dist_image,
@@ -57,6 +56,8 @@ def compute_metrics(LOGGER, ref_image, dist_image, width, height, depth, temp_fo
     psnr = compute_psnr(LOGGER, ref_image, dist_image, width, height, depth, temp_folder, subsampling)
     stats = vmaf.copy()
     stats.update(psnr)
+    remove_files(ref_image)
+    remove_files(dist_image)
     return stats
 
 

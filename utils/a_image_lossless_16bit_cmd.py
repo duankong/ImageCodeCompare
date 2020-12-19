@@ -24,7 +24,8 @@ def f_image_lossless_16bit(LOGGER, image, width, height, temp_folder, codec, sub
     :param subsampling: color subsampling
     :return:
     """
-    LOGGER.debug("Encoding image " + image + " with codec " + codec + " LOSSLESS ")
+    _, filename = os.path.split(image)
+    LOGGER.info("Encoding image [ {} ] with codec [ {} ] LOSSLESS".format(filename,str(codec).upper()))
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')

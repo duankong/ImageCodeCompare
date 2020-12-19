@@ -24,15 +24,14 @@ import ntpath
 import threading
 import sqlite3
 import numpy as np
-from tqdm import tqdm
 
 from utils.u_utils_common import make_my_tuple, mkdir_p
 from utils.u_mysql_execute import get_insert_command, create_table_if_needed, does_entry_exist
-# change
 from utils.u_logging_setup import setup_logging
-from Config.config_compress import args_image_compress_config
+from utils.u_folder_build import split_file
 from utils.u_result_easy_show import show_image_lossy_result, show_image_lossless_result
-
+# config
+from Config.config_compress import args_image_compress_config
 # image tuples
 from Config.config_utils import image_tuple_choice
 # 8 bit image cmd
@@ -110,14 +109,21 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     # init parameter
     image_status = dict(
         [('source_image', ntpath.basename(image)),
-         ('width', width), ('height', height), ('depth', depth), ('frames', 1),
-         ('subsampling', subsampling), ('temp_folder', temp_folder)])
+         ('width', width),
+         ('height', height),
+         ('depth', depth),
+         ('frames', 1),
+         ('subsampling', subsampling),
+         ('temp_folder', temp_folder)])
     compress_status = dict(
-        [('metric', metric), ('target', target), ('codec', codec), ('tuple_minus_uuid', tuple_minus_uuid)])
+        [('metric', metric),
+         ('target', target),
+         ('codec', codec),
+         ('tuple_minus_uuid', tuple_minus_uuid)])
     f_lossy, f_lossless = f_func_choice(depth)
 
-    LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
-                       inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling)))
+    # LOGGER.debug(repr((multiprocessing.current_process(), temp_folder,
+    #                    inverse, a, b, ab_tol, metric, target, target_tol, codec, image, width, height, subsampling)))
     # run
     last_c, quality, encoded_file = None, None, None
     if args.func_choice == 'customize':
@@ -149,7 +155,6 @@ def bisection(inverse, a, b, ab_tol, metric, target, target_tol, codec, image, w
     else:
         LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)
-    print('#', end='')
     return last_c, quality, encoded_file, os.path.getsize(encoded_file), compress_status, image_status
 
 
@@ -158,9 +163,12 @@ def update_stats(results):
     """
     channels = 1
     param, quality, encoded_file, file_size_bytes, codec_status, im_status = results
-    LOGGER.info('<<' + codec_status['codec'].upper() + '>>' + " Param " + str(param) + " quality "
-                + repr(quality) + " encoded_file: " + encoded_file
-                + " size: " + str(file_size_bytes) + " bytes")
+    filepath, filename = os.path.split(im_status['source_image'])
+    log_txt = '<<{}>> {} || Param:{} PSNR:{} '.format(codec_status['codec'].upper().center(15),
+                                                        str(filename).center(20),
+                                                        str(param).center(10),
+                                                        str(quality['psnr_y']).center(10))
+    LOGGER.warning(log_txt)
 
     TOTAL_BYTES[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
         codec_status['target'])] += os.path.getsize(encoded_file)
@@ -202,7 +210,7 @@ def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target,
     # width, height, depth = data.width, data.height, data.depth
     # 每一张图像加入任务
     for num, image in enumerate(data.images):
-        width, height, depth=data.get_dimensions(image)
+        width, height, depth = data.get_dimensions(image)
         LOGGER.info(
             "[" + str(num) + "] Source image: " + image + " {" + width + "x" + height + "} bit-depth: " + depth)
         # 每一个编码方式进行遍历
@@ -250,7 +258,7 @@ def main():
         threading.current_thread().ident)
     setup_logging(LOGGER=LOGGER, worker=False, worker_id=multiprocessing.current_process().ident)
     data = ImageData(args.image_path)
-    print("### n = {}".format(data.image_nums))
+    LOGGER.warning("### n = {}".format(data.image_nums))
     metric = args.metric
     target_arr = args.target_arr
     target_tol = args.target_tol
@@ -277,15 +285,15 @@ def main():
     if args.func_choice == 'customize':
         for target in target_arr:
             func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
-        show_image_lossy_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
-                                TOTAL_BYTES,
-                                TUPLE_CODECS, data, target_arr, metric)
+        # show_image_lossy_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
+        #                         TOTAL_BYTES,
+        #                         TUPLE_CODECS, data, target_arr, metric)
     elif args.func_choice == 'lossless':
         metric = 'psnr_avg'
         target = 0
         func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
-        show_image_lossless_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
-                                   TOTAL_BYTES, TUPLE_CODECS, target, metric, data.image_nums)
+        # show_image_lossless_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
+        #                            TOTAL_BYTES, TUPLE_CODECS, target, metric, data.image_nums)
     elif args.func_choice == 'auto':
         metric = 'psnr_avg'
         target = 0

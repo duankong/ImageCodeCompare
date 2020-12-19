@@ -107,10 +107,10 @@ def lossless_tuple_codes():
         # # # 8
         CodecType('avif-mse', True, 0, 0, 0, '420'),
         CodecType('avif-mse', True, 0, 0, 0, '444'),
-        # #
+        #
         # CodecType('avif-ssim', True, 0, 0, 0, '420'),
         # CodecType('avif-ssim', True, 0, 0, 0, '444'),
-        # # # 9
+        # # 9
         CodecType('avifenc-sp-0', True, 0, 0, 0, '420'),
         CodecType('avifenc-sp-0', True, 0, 0, 0, '444'),
     )

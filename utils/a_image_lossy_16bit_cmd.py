@@ -25,6 +25,8 @@ def f_image_lossy_16bit(LOGGER, image, width, height, temp_folder, codec, subsam
     :return:
     """
     param = str(param)
+    _, filename = os.path.split(image)
+    LOGGER.info("Encoding image [ {} ] with codec [ {} ] LOSSY".format(filename,str(codec).upper()))
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
