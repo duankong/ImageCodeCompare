@@ -7,7 +7,6 @@ from .u_run_cmd import run_program
 from .u_folder_build import remove_files
 
 
-
 def compute_vmaf(LOGGER, ref_image, dist_image, width, height, depth, temp_folder, subsampling):
     """ given a pair of reference and distorted images:
         use the ffmpeg libvmaf filter to compute vmaf, vif, ssim, and ms_ssim.
@@ -21,15 +20,17 @@ def compute_vmaf(LOGGER, ref_image, dist_image, width, height, depth, temp_folde
            '-lavfi', 'libvmaf=psnr=true:ssim=true:ms_ssim=true:log_fmt=json:log_path=' + log_path, '-f', 'null', '-']
 
     run_program(LOGGER, cmd)
-
-    vmaf_log = json.load(open(log_path))
-
     vmaf_dict = dict()
-    vmaf_dict["vmaf"] = vmaf_log["frames"][0]["metrics"]["vmaf"]
-    vmaf_dict["vif"] = vmaf_log["frames"][0]["metrics"]["vif_scale0"]
-    vmaf_dict["ssim"] = vmaf_log["frames"][0]["metrics"]["ssim"]
-    vmaf_dict["ms_ssim"] = vmaf_log["frames"][0]["metrics"]["ms_ssim"]
-    vmaf_dict["adm2"] = vmaf_log["frames"][0]["metrics"]["adm2"]
+    try:
+        vmaf_log = json.load(open(log_path))
+    except:
+        LOGGER.error("{}".format(log_path))
+    else:
+        vmaf_dict["vmaf"] = vmaf_log["frames"][0]["metrics"]["vmaf"]
+        vmaf_dict["vif"] = vmaf_log["frames"][0]["metrics"]["vif_scale0"]
+        vmaf_dict["ssim"] = vmaf_log["frames"][0]["metrics"]["ssim"]
+        vmaf_dict["ms_ssim"] = vmaf_log["frames"][0]["metrics"]["ms_ssim"]
+        vmaf_dict["adm2"] = vmaf_log["frames"][0]["metrics"]["adm2"]
     return vmaf_dict
 
 
