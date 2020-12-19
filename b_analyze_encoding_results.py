@@ -17,22 +17,53 @@ codec_len = 15
 
 
 def eve_line(logger, all_codec_results_terse_all, source_image_all, CR):
-    num_size = len(all_codec_results_terse_all[0])
-    max_arr = np.zeros(num_size)
-    min_arr = np.zeros(num_size)
+    num_size = len(all_codec_results_terse_all)
+    max_arr = np.ones(num_size) * np.inf * -1
+    min_arr = np.ones(num_size) * np.inf
     for i in range(len(all_codec_results_terse_all[0])):
         consolidated_results = ""
-        for a in all_codec_results_terse_all:
+        for k, a in enumerate(all_codec_results_terse_all):
             consolidated_results += '{:.2f}%'.format(a[i]).rjust(codec_len) if CR == False else '{:.2f}'.format(
                 a[i]).rjust(codec_len)
-            max_arr[i] = max(max_arr[i], a[i])
-            min_arr[i] = min(min_arr[i], a[i])
+            max_arr[k] = max(max_arr[k], a[i])
+            min_arr[k] = min(min_arr[k], a[i])
         prefix = source_image_all[i]
         if CR:
             prefix += "  CR"
         if args_analyze_config().every_images == 1:
             logger.info('{}:{}'.format(str(prefix).ljust(blanket), consolidated_results))
-    return max_arr, min_arr
+    return (max_arr, min_arr)
+
+
+def avg_line(logger, codec_results_terse, target, all_codec_results_terse_all, prefix):
+    logger.info('-' * (blanket + 1 + codec_len * len(all_codec_results_terse_all)))
+    consolidated_results = ""
+    for a in codec_results_terse:
+        consolidated_results += a.ljust(codec_len) if prefix == 'Terse' else '{:.2f}'.format(a).rjust(codec_len)
+    num_size = len(all_codec_results_terse_all[0])
+    t_prefix = str(
+        'T {}({})'.format(target, num_size) if not args_analyze_config().lossless else 'avg {}({})'.format(prefix,
+                                                                                                           num_size)).ljust(
+        blanket)
+    logger.info('{}:{}'.format(t_prefix, consolidated_results))
+
+
+def max_min_len(logger, array_max_min, prefix):
+    max_line, min_line = array_max_min
+    tt = ""
+    if prefix == 'Terse':
+        max_line, min_line = min_line, max_line
+        tt = '%'
+
+    def tmp_line(data_line, tmp_prefix):
+        consolidated_results = ""
+        for a in data_line:
+            consolidated_results += '{:.2f}{}'.format(a, tt).rjust(codec_len)
+        prefix_ = '{} {}'.format(tmp_prefix, prefix).ljust(blanket)
+        logger.info('{}:{}'.format(prefix_, consolidated_results))
+
+    tmp_line(max_line, 'max')
+    tmp_line(min_line, 'min')
 
 
 def show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, source_image_all, results_dict):
@@ -52,26 +83,13 @@ def show_result(logger, codecs, sub_sampling, unique_sorted_metric_values, sourc
         results_list_compress_rate, results_list_compress_rate_all, codec_results_terse, all_codec_results_terse_all = \
             results_dict[target]
         # ======================== EVE ======================== #
-        eve_line(logger, all_codec_results_terse_all, source_image_all, False)
-        eve_line(logger, results_list_compress_rate_all, source_image_all, True)
+        terse_max_min = eve_line(logger, all_codec_results_terse_all, source_image_all, False)
+        cr_max_min = eve_line(logger, results_list_compress_rate_all, source_image_all, True)
         # ======================== AVG ======================== #
-        consolidated_results = ""
-        for a in codec_results_terse:
-            consolidated_results += a.ljust(codec_len)
-        logger.info('{}:{}'.format(
-            str('T {}({})'.format(target, len(
-                all_codec_results_terse_all[0])) if not args_analyze_config().lossless else 'avg Terse({})'.format(
-                len(all_codec_results_terse_all[0]))).ljust(blanket),
-            consolidated_results))
-
-        consolidated_results = ""
-        for a in results_list_compress_rate:
-            consolidated_results += '{:.2f}'.format(a).rjust(codec_len)
-        logger.info('{}:{}'.format(
-            str('T {}({})'.format(target, len(
-                results_list_compress_rate_all[0])) if not args_analyze_config().lossless else 'avg CR({})'.format(
-                len(results_list_compress_rate_all[0]))).ljust(blanket),
-            consolidated_results))
+        avg_line(logger, codec_results_terse, target, all_codec_results_terse_all, 'Terse')
+        max_min_len(logger, terse_max_min, 'Terse')
+        avg_line(logger, results_list_compress_rate, target, results_list_compress_rate_all, 'CR')
+        max_min_len(logger, cr_max_min, 'CR')
 
     logger.info('=' * (blanket + 1 + codec_len * len(codecs)))
     logger.info("\n\n")

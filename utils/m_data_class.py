@@ -24,9 +24,11 @@ class ImageData():
         self.image_path = image_path
         self.width, self.height, self.depth = ImageData.get_dimensions(
             list(set(listdir_full_path(image_path)))[0])
-        self.check_data(num_process=4)
+        # self.check_data(num_process=4)
+        self.images=list(set(listdir_full_path(image_path)))
         self.images.sort()
         self.image_nums = len(self.images)
+
 
     def init_yuv_info(self, batch_image_dir, yuv_dir, max_frames):
         self.batch_image_dir = batch_image_dir
@@ -38,7 +40,7 @@ class ImageData():
         yuv_prepare(self.images, self.width, self.height, self.depth, self.batch_image_dir,
                     self.yuv_dir, num_process, self.max_frames)
 
-    def check_data(self, num_process=4):
+    def check_data(self, num_process=8):
         pool = multiprocessing.Pool(processes=num_process)
         for num, image in enumerate(list(set(listdir_full_path(self.image_path)))):
             pool.apply_async(

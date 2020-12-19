@@ -41,7 +41,7 @@ METRIC
 
 
 def get_metric_value_file_size_bytes(results):
-    results = sorted(results, key=lambda x: x[-1])
+    results = sorted(results, key=lambda x: x[-3])
     metric_values = [elem[0] for elem in results]
     file_size_values = [elem[1] for elem in results]
     vmaf_values = [elem[2] for elem in results]
@@ -76,7 +76,7 @@ def easy_logging(file_prefix, db_file_name):
     console_log_handler.setFormatter(formatter)
     logger.addHandler(console_log_handler)
 
-    logger.setLevel('DEBUG')
+    logger.setLevel('INFO')
     return logger
 
 

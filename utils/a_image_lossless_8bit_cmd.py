@@ -24,7 +24,7 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
     :param subsampling: color subsampling
     :return:
     """
-    LOGGER.debug("Encoding image " + image + " with codec " + codec + " LOSSLESS ")
+    LOGGER.info("Encoding image " + image + " with codec " + codec + " LOSSLESS ")
     encoded_file = get_filename_with_temp_folder(temp_folder, 'encoded_file_whoami')
     source_yuv = get_filename_with_temp_folder(temp_folder, 'source.yuv')
     decoded_yuv = get_filename_with_temp_folder(temp_folder, 'decoded.yuv')
@@ -201,16 +201,16 @@ def f_image_lossless_8bit(LOGGER, image, width, height, temp_folder, codec, subs
         raise RuntimeError('Unsupported codec and subsampling ' + codec + ' / ' + subsampling)
     stats = compute_metrics(LOGGER, source_yuv, decoded_yuv, width, height, '8', temp_folder, subsampling)
     stats['file_size_bytes'] = os.path.getsize(encoded_file)
-    LOGGER.debug(
-        "Encoding  {} with {:<13} param={:<13} subsampling={}|| "
-        "psnr_avg={:<8} ssim={:<8}  vmaf={:<8} ||"
-        " size={} ".format(image, codec,
-                           param_lossy[0:12],
-                           subsampling,
-                           stats['psnr_avg'],
-                           stats['ssim'],
-                           stats['vmaf'],
-                           stats['file_size_bytes']))
+    # LOGGER.debug(
+    #     "Encoding  {} with {:<13} param={:<13} subsampling={}|| "
+    #     "psnr_avg={:<8} ssim={:<8}  vmaf={:<8} ||"
+    #     " size={} ".format(image, codec,
+    #                        param_lossy[0:12],
+    #                        subsampling,
+    #                        stats['psnr_avg'],
+    #                        stats['ssim'],
+    #                        stats['vmaf'],
+    #                        stats['file_size_bytes']))
     return stats, encoded_file
 
 

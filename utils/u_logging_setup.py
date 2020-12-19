@@ -27,7 +27,7 @@ def setup_logging(LOGGER, worker, worker_id):
     console_log_handler.setFormatter(formatter)
     LOGGER.addHandler(console_log_handler)
 
-    LOGGER.setLevel('ERROR')
+    LOGGER.setLevel('INFO') # DEBUG < INFO < WARNING < ERROR < CRITICAL
 
 
 if __name__ == '__main__':
