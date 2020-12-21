@@ -23,6 +23,7 @@ import multiprocessing
 import ntpath
 import threading
 import sqlite3
+import shutil
 import numpy as np
 
 from utils.u_utils_common import make_my_tuple, mkdir_p
@@ -165,9 +166,9 @@ def update_stats(results):
     param, quality, encoded_file, file_size_bytes, codec_status, im_status = results
     filepath, filename = os.path.split(im_status['source_image'])
     log_txt = '<<{}>> {} || Param:{} PSNR:{} '.format(codec_status['codec'].upper().center(15),
-                                                        str(filename).center(20),
-                                                        str(param).center(10),
-                                                        str(quality['psnr_y']).center(10))
+                                                      str(filename).center(20),
+                                                      str(param).center(10),
+                                                      str(quality['psnr_y']).center(10))
     LOGGER.warning(log_txt)
 
     TOTAL_BYTES[codec_status['codec'] + im_status['subsampling'] + codec_status['metric'] + str(
@@ -200,6 +201,9 @@ def update_stats(results):
     except:
         LOGGER.error("[ update_stats ] ERROR")
         # CONNECTION.rollback()
+    (filepath, tempfilename) = os.path.split(encoded_file)
+    shutil.rmtree(filepath)
+
     # remove_files_keeping_encode(temp_folder, encoded_file)  # comment out to keep all files
 
 
@@ -217,12 +221,13 @@ def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target,
         for codec in tuple_codecs:
             LOGGER.debug(" ")
             skip_encode = False
-            if only_perform_missing_encodes:
-                unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
-                                          codec.subsampling, 0)
-                skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
-            if not skip_encode:
-                if args.func_choice in ['lossless', 'customize']:
+
+            if args.func_choice in ['lossless', 'customize']:
+                if only_perform_missing_encodes:
+                    unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
+                                              codec.subsampling, 0)
+                    skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
+                if not skip_encode:
                     results_total.append(
                         (pool.apply_async(bisection,
                                           args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
@@ -232,8 +237,13 @@ def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target,
                                           error_callback=error_function),
                          codec.name,
                          codec.subsampling))
-                elif args.func_choice == 'auto':
-                    for para in np.linspace(codec.param_start, codec.param_end, 5):
+            elif args.func_choice == 'auto':
+                for para in np.linspace(codec.param_start, codec.param_end, 40):
+                    if only_perform_missing_encodes:
+                        unique_id = make_my_tuple(LOGGER, image, width, height, codec.name, metric, target,
+                                                  codec.subsampling, para)
+                        skip_encode = does_entry_exist(LOGGER, CONNECTION, unique_id)
+                    if not skip_encode:
                         results_total.append(
                             (pool.apply_async(bisection,
                                               args=(codec.inverse, codec.param_start, codec.param_end, codec.ab_tol,
@@ -243,8 +253,8 @@ def func(data, pool, tuple_codecs, only_perform_missing_encodes, metric, target,
                                               error_callback=error_function),
                              codec.name,
                              codec.subsampling))
-                else:
-                    LOGGER.error("[func] Not support mode in {}".format(args.func_choice))
+            else:
+                LOGGER.error("[func] Not support mode in {}".format(args.func_choice))
         LOGGER.info('-----------------------------------------------------------------------------------------')
 
 
@@ -288,16 +298,12 @@ def main():
         # show_image_lossy_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
         #                         TOTAL_BYTES,
         #                         TUPLE_CODECS, data, target_arr, metric)
-    elif args.func_choice == 'lossless':
+    elif args.func_choice in ['lossless', 'auto']:
         metric = 'psnr_avg'
         target = 0
         func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
         # show_image_lossless_result(results_total, only_perform_missing_encodes, LOGGER, TOTAL_ERRORS, TOTAL_METRIC,
         #                            TOTAL_BYTES, TUPLE_CODECS, target, metric, data.image_nums)
-    elif args.func_choice == 'auto':
-        metric = 'psnr_avg'
-        target = 0
-        func(data, pool, TUPLE_CODECS, only_perform_missing_encodes, metric, target, target_tol)
     else:
         LOGGER.error("[Config] Not support mode in {}".format(args.func_choice))
         exit(0)

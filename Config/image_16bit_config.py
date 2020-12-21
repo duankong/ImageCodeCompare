@@ -31,10 +31,10 @@ def tuple_codes_high_dynamic_range():
         #
         CodecType('kakadu-visual', False, 0.01, 16.0, 0.01, '420'),
         CodecType('kakadu-visual', False, 0.01, 16.0, 0.01, '444'),
-        # # # ## 3 || MAX 46.72 49.73
+        # # # # ## 3 || MAX 46.72 49.73
         CodecType('openjpeg', False, 10.0, 200, 0.05, '420'),
         CodecType('openjpeg', False, 10.0, 160, 0.05, '444'),
-        # ## 4 || MAX 84.28 87.29
+        # # ## 4 || MAX 84.28 87.29
         CodecType('flif', False, 0, 100, 0.02, '420'),  # incomplete 4:2:0 chroma subsampled
         CodecType('flif', False, 0, 100, 0.02, '444'),
         # ## 5
